@@ -43,7 +43,8 @@ struct SimpleDwarf {
     struct DwRow {
         uintptr_t ip; ///< Instruction pointer
         DwRegister cfa; ///< Canonical Frame Address
-        DwRegister regs[HANDLED_REGISTERS_COUNT]; ///< Saved machine registers
+        DwRegister rbp; ///< Base pointer register
+        DwRegister ra; ///< Return address
 
         friend std::ostream& operator<<(std::ostream &, const DwRow&);
     };

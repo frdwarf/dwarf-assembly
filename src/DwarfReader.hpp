@@ -29,7 +29,10 @@ class DwarfReader {
         SimpleDwarf::DwRegister read_register(
                 const dwarf::core::FrameSection::register_def& reg) const;
 
-        SimpleDwarf::MachineRegister from_dwarfpp_reg(int reg_id) const;
+        SimpleDwarf::MachineRegister from_dwarfpp_reg(
+                int reg_id,
+                int ra_reg=-1
+                ) const;
 
         class UnsupportedRegister: public std::exception {};
 

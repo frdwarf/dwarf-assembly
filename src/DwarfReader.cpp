@@ -32,6 +32,8 @@ SimpleDwarf::Fde DwarfReader::read_fde(const core::Fde& fde) const {
     output.end_ip = fde.get_low_pc() + fde.get_func_length();
 
     auto rows = fde.decode().rows;
+    const core::Cie& cie = *fde.find_cie();
+    int ra_reg = cie.get_return_address_register_rule();
 
     for(const auto row_pair: rows) {
         SimpleDwarf::DwRow cur_row;
@@ -47,22 +49,29 @@ SimpleDwarf::Fde DwarfReader::read_fde(const core::Fde& fde) const {
             else {
                 try {
                     SimpleDwarf::MachineRegister reg_type =
-                        from_dwarfpp_reg(cell.first);
-                    cur_row.regs[reg_type] = read_register(cell.second);
+                        from_dwarfpp_reg(cell.first, ra_reg);
+                    switch(reg_type) {
+                        case SimpleDwarf::REG_RBP:
+                            cur_row.rbp = read_register(cell.second);
+                            break;
+                        case SimpleDwarf::REG_RA:
+                            cur_row.ra = read_register(cell.second);
+                            break;
+                        default:
+                            break;
+                    }
                 }
                 catch(UnsupportedRegister) {} // Just ignore it.
             }
         }
 
-        if(cur_row.cfa.type == SimpleDwarf::DwRegister::REG_UNDEFINED
-                || (cur_row.regs[SimpleDwarf::REG_RIP].type
-                    == SimpleDwarf::DwRegister::REG_UNDEFINED)
-                || (cur_row.regs[SimpleDwarf::REG_RSP].type
-                    == SimpleDwarf::DwRegister::REG_UNDEFINED))
+        if(cur_row.cfa.type == SimpleDwarf::DwRegister::REG_UNDEFINED)
         {
             // Not set
             throw InvalidDwarf();
         }
+
+        output.rows.push_back(cur_row);
     }
 
     return output;
@@ -101,7 +110,13 @@ SimpleDwarf::DwRegister DwarfReader::read_register(
     return output;
 }
 
-SimpleDwarf::MachineRegister DwarfReader::from_dwarfpp_reg(int reg_id) const {
+SimpleDwarf::MachineRegister DwarfReader::from_dwarfpp_reg(
+        int reg_id,
+        int ra_reg
+        ) const
+{
+    if(reg_id == ra_reg)
+        return SimpleDwarf::REG_RA;
     switch(reg_id) {
         case lib::DWARF_X86_64_RIP:
             return SimpleDwarf::REG_RIP;
