@@ -5,6 +5,7 @@
 
 #include "SimpleDwarf.hpp"
 #include "DwarfReader.hpp"
+#include "CodeGenerator.hpp"
 
 using namespace std;
 
@@ -18,7 +19,12 @@ int main(int argc, char** argv) {
 
     SimpleDwarf parsed_dwarf = DwarfReader(argv[1]).read();
 
-    cout << parsed_dwarf;
+    cerr << parsed_dwarf;
+
+    cerr << "=====================" << endl << endl;
+
+    CodeGenerator code_gen(parsed_dwarf, cout);
+    code_gen.generate();
 
     return 0;
 }
