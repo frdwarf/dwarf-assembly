@@ -14,6 +14,9 @@ static std::ostream& operator<<(
         case SimpleDwarf::REG_RBP:
             out << "rbp";
             break;
+        case SimpleDwarf::REG_RA:
+            out << "RA";
+            break;
     }
 
     return out;

@@ -34,7 +34,7 @@ struct SimpleDwarf {
         };
 
         Type type; ///< Type of this register
-        uintptr_t offset; ///< Offset from the expression, if applicable
+        int offset; ///< Offset from the expression, if applicable
         MachineRegister reg; ///< Machine register implied, if applicable
 
         friend std::ostream& operator<<(std::ostream &, const DwRegister&);
