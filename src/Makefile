@@ -4,7 +4,7 @@ CXXFLAGS=$(CXXLOCS) -Wall -Wextra -std=c++14 -O2 -g
 CXXLIBS=-lelf -ldwarf -ldwarfpp -lsrk31c++ -lc++fileno
 
 TARGET=dwarf-assembly
-OBJS=DwarfReader.o SimpleDwarf.o
+OBJS=DwarfReader.o SimpleDwarf.o main.o
 
 ###############################################################################
 
