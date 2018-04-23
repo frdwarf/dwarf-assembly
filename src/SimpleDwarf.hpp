@@ -8,13 +8,15 @@
 
 #include <cstdint>
 #include <vector> // We only need linear swipes, no need for anything fancier
+#include <ostream>
 
 struct SimpleDwarf {
     /** A machine register (eg. %rip) among the supported ones (x86_64 only
      * for now) */
-    static const std::size_t HANDLED_REGISTERS_COUNT = 3;
+    static const std::size_t HANDLED_REGISTERS_COUNT = 4;
     enum MachineRegister {
-        REG_RIP, REG_RSP, REG_RBP
+        REG_RIP, REG_RSP, REG_RBP,
+        REG_RA ///< A bit of cheating: not a machine register
     };
 
     struct DwRegister {
@@ -34,18 +36,40 @@ struct SimpleDwarf {
         Type type; ///< Type of this register
         uintptr_t offset; ///< Offset from the expression, if applicable
         MachineRegister reg; ///< Machine register implied, if applicable
+
+        friend std::ostream& operator<<(std::ostream &, const DwRegister&);
     };
 
     struct DwRow {
-        uintptr_t ip;
-        DwRegister cfa;
-        DwRegister regs[HANDLED_REGISTERS_COUNT];
+        uintptr_t ip; ///< Instruction pointer
+        DwRegister cfa; ///< Canonical Frame Address
+        DwRegister regs[HANDLED_REGISTERS_COUNT]; ///< Saved machine registers
+
+        friend std::ostream& operator<<(std::ostream &, const DwRow&);
     };
 
     struct Fde {
-        uintptr_t beg_ip, end_ip;
-        std::vector<DwRow> rows;
+        uintptr_t beg_ip, ///< This FDE's start instruction pointer
+                  end_ip; ///< This FDE's end instruction pointer
+        std::vector<DwRow> rows; ///< Dwarf rows for this FDE
+
+        friend std::ostream& operator<<(std::ostream &, const Fde&);
     };
 
-    std::vector<Fde> fde_list;
+    std::vector<Fde> fde_list; ///< List of FDEs in this Dwarf
+
+    friend std::ostream& operator<<(std::ostream &, const SimpleDwarf&);
 };
+
+/// Dumps this object to `out`
+std::ostream& operator<<(std::ostream& out,
+        const SimpleDwarf::DwRegister& reg);
+
+/// Dumps this object to `out`
+std::ostream& operator<<(std::ostream& out, const SimpleDwarf::DwRow& reg);
+
+/// Dumps this object to `out`
+std::ostream& operator<<(std::ostream& out, const SimpleDwarf::Fde& reg);
+
+/// Dumps this object to `out`
+std::ostream& operator<<(std::ostream& out, const SimpleDwarf& reg);
