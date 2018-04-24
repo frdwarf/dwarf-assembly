@@ -8,10 +8,16 @@ static const char* PRELUDE =
 "\n"
 "typedef struct {\n"
 "    uintptr_t rip, rsp, rbp;\n"
-"} unwind_context_t;\n";
+"} unwind_context_t;\n"
+"\n"
+"typedef unwind_context_t (*_fde_func_t)(unwind_context_t, uintptr_t);\n"
+;
 
-CodeGenerator::CodeGenerator(const SimpleDwarf& dwarf, std::ostream& os):
-    dwarf(dwarf), os(os)
+CodeGenerator::CodeGenerator(
+        const SimpleDwarf& dwarf,
+        std::ostream& os,
+        NamingScheme naming_scheme):
+    dwarf(dwarf), os(os), naming_scheme(naming_scheme)
 {}
 
 void CodeGenerator::generate() {
@@ -21,15 +27,26 @@ void CodeGenerator::generate() {
 void CodeGenerator::gen_of_dwarf() {
     os << PRELUDE << '\n' << endl;
 
+    vector<LookupEntry> lookup_entries;
+
     // A function per FDE
     for(const auto& fde: dwarf.fde_list) {
+        LookupEntry cur_entry;
+        cur_entry.name = naming_scheme(fde);
+        cur_entry.beg = fde.beg_ip;
+        cur_entry.end = fde.end_ip;
+        lookup_entries.push_back(cur_entry);
+
         gen_of_fde(fde);
         os << endl;
     }
+
+    gen_lookup(lookup_entries);
 }
 
 void CodeGenerator::gen_of_fde(const SimpleDwarf::Fde& fde) {
-    os << "unwind_context_t _fde_" << fde.beg_ip
+    os << "unwind_context_t "
+       << naming_scheme(fde)
        << "(unwind_context_t ctx, uintptr_t pc) {\n"
        << "\tunwind_context_t out_ctx;\n"
        << "\tswitch(pc) {" << endl;
@@ -103,4 +120,16 @@ void CodeGenerator::gen_of_reg(const SimpleDwarf::DwRegister& reg) {
             os << "0; assert(0)";
             break;
     }
+}
+
+void CodeGenerator::gen_lookup(const std::vector<LookupEntry>& entries) {
+    os << "_fde_func_t _fde_lookup(uintptr_t pc) {\n"
+       << "\tswitch(pc) {" << endl;
+    for(const auto& entry: entries) {
+        os << "\t\tcase " << entry.beg << " ... " << entry.end - 1 << ":\n"
+           << "\t\t\treturn &" << entry.name << ";" << endl;
+    }
+    os << "\t\tdefault: assert(0);\n"
+       << "\t}\n"
+       << "}" << endl;
 }

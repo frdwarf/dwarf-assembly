@@ -1,6 +1,7 @@
 /** Entry point */
 
 #include <iostream>
+#include <sstream>
 #include <cstdlib>
 
 #include "SimpleDwarf.hpp"
@@ -23,7 +24,14 @@ int main(int argc, char** argv) {
 
     cerr << "=====================" << endl << endl;
 
-    CodeGenerator code_gen(parsed_dwarf, cout);
+    CodeGenerator code_gen(
+            parsed_dwarf,
+            cout,
+            [](const SimpleDwarf::Fde& fde) {
+                std::ostringstream ss;
+                ss << "_fde_" << fde.beg_ip;
+                return ss.str();
+            });
     code_gen.generate();
 
     return 0;
