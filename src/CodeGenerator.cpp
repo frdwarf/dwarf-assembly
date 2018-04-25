@@ -1,14 +1,11 @@
 #include "CodeGenerator.hpp"
+#include "gen_context_struct.hpp"
 
 using namespace std;
 
 static const char* PRELUDE =
 "#include <stdint.h>\n"
 "#include <assert.h>\n"
-"\n"
-"typedef struct {\n"
-"    uintptr_t rip, rsp, rbp;\n"
-"} unwind_context_t;\n"
 "\n"
 "typedef unwind_context_t (*_fde_func_t)(unwind_context_t, uintptr_t);\n"
 ;
@@ -25,7 +22,8 @@ void CodeGenerator::generate() {
 }
 
 void CodeGenerator::gen_of_dwarf() {
-    os << PRELUDE << '\n' << endl;
+    os << CONTEXT_STRUCT_STR << '\n'
+       << PRELUDE << '\n' << endl;
 
     vector<LookupEntry> lookup_entries;
 

@@ -10,8 +10,13 @@ OBJS=DwarfReader.o SimpleDwarf.o CodeGenerator.o main.o
 
 all: $(TARGET)
 
-$(TARGET): $(OBJS)
+$(TARGET): gen_context_struct.hpp $(OBJS)
 	$(CXX) -o $@ $(CXXFLAGS) $^ $(CXXLIBS)
+
+gen_context_struct.hpp: ../shared/context_struct.h
+	echo "static const char* CONTEXT_STRUCT_STR =" > $@
+	sed 's/"/\\"/g' $< | sed 's/^\(.*\)$$/"\1\\n"/g' >> $@
+	echo ";" >> $@
 
 %.o: %.cpp
 	$(CXX) -o $@ $(CXXFLAGS) -c $<
@@ -19,4 +24,4 @@ $(TARGET): $(OBJS)
 
 .PHONY: clean
 clean:
-	rm -f $(TARGET) *.o
+	rm -f $(TARGET) *.o gen_*.hpp
