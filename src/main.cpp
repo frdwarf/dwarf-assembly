@@ -20,10 +20,6 @@ int main(int argc, char** argv) {
 
     SimpleDwarf parsed_dwarf = DwarfReader(argv[1]).read();
 
-    cerr << parsed_dwarf;
-
-    cerr << "=====================" << endl << endl;
-
     CodeGenerator code_gen(
             parsed_dwarf,
             cout,
