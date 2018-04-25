@@ -84,27 +84,32 @@ SimpleDwarf::DwRegister DwarfReader::read_register(
 {
     SimpleDwarf::DwRegister output;
 
-    switch(reg.k) {
-        case core::FrameSection::register_def::REGISTER:
-            output.type = SimpleDwarf::DwRegister::REG_REGISTER;
-            output.offset = reg.register_plus_offset_r().second;
-            output.reg = from_dwarfpp_reg(
-                    reg.register_plus_offset_r().first);
-            break;
+    try {
+        switch(reg.k) {
+            case core::FrameSection::register_def::REGISTER:
+                output.type = SimpleDwarf::DwRegister::REG_REGISTER;
+                output.offset = reg.register_plus_offset_r().second;
+                output.reg = from_dwarfpp_reg(
+                        reg.register_plus_offset_r().first);
+                break;
 
-        case core::FrameSection::register_def::SAVED_AT_OFFSET_FROM_CFA:
-            output.type = SimpleDwarf::DwRegister::REG_CFA_OFFSET;
-            output.offset = reg.saved_at_offset_from_cfa_r();
-            break;
+            case core::FrameSection::register_def::SAVED_AT_OFFSET_FROM_CFA:
+                output.type = SimpleDwarf::DwRegister::REG_CFA_OFFSET;
+                output.offset = reg.saved_at_offset_from_cfa_r();
+                break;
 
-        case core::FrameSection::register_def::INDETERMINATE:
-        case core::FrameSection::register_def::UNDEFINED:
-            output.type = SimpleDwarf::DwRegister::REG_UNDEFINED;
-            break;
+            case core::FrameSection::register_def::INDETERMINATE:
+            case core::FrameSection::register_def::UNDEFINED:
+                output.type = SimpleDwarf::DwRegister::REG_UNDEFINED;
+                break;
 
-        default:
-            output.type = SimpleDwarf::DwRegister::REG_NOT_IMPLEMENTED;
-            break;
+            default:
+                output.type = SimpleDwarf::DwRegister::REG_NOT_IMPLEMENTED;
+                break;
+        }
+    }
+    catch(const UnsupportedRegister& e) {
+        output.type = SimpleDwarf::DwRegister::REG_NOT_IMPLEMENTED;
     }
 
     return output;
