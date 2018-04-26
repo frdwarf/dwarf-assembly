@@ -12,6 +12,7 @@
 
 typedef void* dl_handle_t;
 
+/** Describes a line in the memory map (which SO is loaded where) */
 struct MemoryMapEntry {
     MemoryMapEntry():
         beg(0), end(0), offset(0), obj_path(), eh_dl_handle(nullptr)
@@ -24,11 +25,18 @@ struct MemoryMapEntry {
     dl_handle_t eh_dl_handle;
 };
 
-typedef std::map<uintptr_t, MemoryMapEntry> MemoryMap;
+/** `MemoryMapEntry`es mapped by their `beg` */
+typedef std::map<
+    uintptr_t,
+    MemoryMapEntry,
+    std::greater<uintptr_t> > MemoryMap;
+// here, std::greater is used because it allows easy access to the
+// corresponding segment by using lower_bound
 
 static MemoryMap memory_map;
 
 
+/** Equivalent to a shell command `readlink -f` */
 std::string readlink_rec(const char* path) {
     char buf[2][1024];
     int parity = 1;
@@ -46,6 +54,7 @@ std::string readlink_rec(const char* path) {
     return std::string(buf[1 - parity]);
 }
 
+/** Called by `dl_iterate_phdr` later, initializes `memory_map` */
 int fill_memory_map_callback(
         struct dl_phdr_info* info,
         size_t /*size*/,
@@ -100,6 +109,7 @@ bool stack_walker_init() {
                 mmap_entry.second.obj_path.c_str());
     }
 
+    // Call `dlopen` on the `eh_elf.so` maching every entry in `memory_map`
     for(auto& mmap_entry_pair: memory_map) {
         auto& mmap_entry = mmap_entry_pair.second;
 
@@ -142,6 +152,34 @@ unwind_context_t get_context() {
 
     unwind_context(out);
     return out;
+}
+
+/** Get the `fde_func_t` function handling the given program counter — it may
+ * be by calling a lookup function, or by directly looking into the ELF
+ * symbols, depending on the state of the experiment. This is an abstraction
+ * function. */
+_fde_func_t fde_handler_for_pc(uintptr_t pc) {
+    // Get the memory_map entry
+    auto mmap_entry_it = memory_map.lower_bound(pc);
+    if(mmap_entry_it == memory_map.end()) {
+        return nullptr;
+    }
+    MemoryMapEntry& mmap_entry = mmap_entry_it->second;
+    if(!(mmap_entry.beg <= pc && pc <= mmap_entry.end))
+        return nullptr;
+
+    // Get the lookup function
+    _fde_func_t (*lookup)(uintptr_t) =
+        (_fde_func_t (*)(uintptr_t)) (
+                dlsym(mmap_entry.eh_dl_handle, "_fde_lookup"));
+
+    // Get the translated pc
+    uintptr_t tr_pc = pc - mmap_entry.beg;
+
+    // Get the actual function
+    _fde_func_t rfunc = lookup(tr_pc);
+
+    return rfunc;
 }
 
 bool unwind_context(unwind_context_t& ctx) {
