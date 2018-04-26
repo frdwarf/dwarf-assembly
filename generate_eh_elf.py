@@ -79,6 +79,17 @@ def gen_eh_elf(obj_path, out_dir=None):
     print("> {}...".format(os.path.basename(obj_path)))
 
     out_base_name = os.path.basename(obj_path) + '.eh_elf'
+    out_so_path = os.path.join(out_dir, (out_base_name + '.so'))
+
+    try:
+        so_mtime = os.path.getmtime(out_so_path)
+        obj_mtime = os.path.getmtime(obj_path)
+
+        if obj_mtime < so_mtime:
+            return  # The object is recent enough, no need to recreate it
+    except OSError:
+        pass
+
 
     with tempfile.TemporaryDirectory() as compile_dir:
         # Generate the C source file
@@ -89,14 +100,16 @@ def gen_eh_elf(obj_path, out_dir=None):
         # Compile it into a .o
         print("\tCompiling into .o…")
         o_path = os.path.join(compile_dir, (out_base_name + '.o'))
-        if subprocess.call([CXX_BIN, '-o', o_path, '-c', c_path,
-                            '-O3', '-fPIC']) != 0:
+        call_rc = subprocess.call(
+            [CXX_BIN, '-o', o_path, '-c', c_path, '-O3', '-fPIC'])
+        if call_rc != 0:
             raise Exception("Failed to compile to a .o file")
 
         # Compile it into a .so
         print("\tCompiling into .so…")
-        so_path = os.path.join(out_dir, (out_base_name + '.so'))
-        if subprocess.call([CXX_BIN, '-o', so_path, '-shared', o_path]) != 0:
+        call_rc = subprocess.call(
+            [CXX_BIN, '-o', out_so_path, '-shared', o_path])
+        if call_rc != 0:
             raise Exception("Failed to compile to a .so file")
 
 
