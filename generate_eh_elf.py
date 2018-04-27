@@ -17,9 +17,9 @@ import argparse
 DWARF_ASSEMBLY_BIN = os.path.join(
     os.path.dirname(os.path.abspath(sys.argv[0])),
     'dwarf-assembly')
-CXX_BIN = (
-    'g++' if 'CXX' not in os.environ
-    else os.environ['CXX'])
+C_BIN = (
+    'gcc' if 'C' not in os.environ
+    else os.environ['C'])
 
 
 def elf_so_deps(path):
@@ -101,14 +101,14 @@ def gen_eh_elf(obj_path, out_dir=None):
         print("\tCompiling into .o…")
         o_path = os.path.join(compile_dir, (out_base_name + '.o'))
         call_rc = subprocess.call(
-            [CXX_BIN, '-o', o_path, '-c', c_path, '-O3', '-fPIC'])
+            [C_BIN, '-o', o_path, '-c', c_path, '-O3', '-fPIC'])
         if call_rc != 0:
             raise Exception("Failed to compile to a .o file")
 
         # Compile it into a .so
         print("\tCompiling into .so…")
         call_rc = subprocess.call(
-            [CXX_BIN, '-o', out_so_path, '-shared', o_path])
+            [C_BIN, '-o', out_so_path, '-shared', o_path])
         if call_rc != 0:
             raise Exception("Failed to compile to a .so file")
 
