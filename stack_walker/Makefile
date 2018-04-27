@@ -1,6 +1,6 @@
 CXX=g++
 CXXLIBS=-ldl
-CXXFLAGS=-O0 -g -fPIC -Wall -Wextra
+CXXFLAGS=-O2 -fPIC -Wall -Wextra
 
 TARGET=libstack_walker.so
 OBJS=stack_walker.o

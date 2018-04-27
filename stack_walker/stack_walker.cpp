@@ -45,10 +45,8 @@ std::string readlink_rec(const char* path) {
     do {
         int rc = readlink(buf[parity], buf[1-parity], 1024);
         parity = 1 - parity;
-        if(rc < 0) {
-            if(errno == EINVAL)
-                break;
-        }
+        if(rc < 0)
+            break;
     } while(true);
 
     return std::string(buf[1 - parity]);
@@ -150,15 +148,14 @@ unwind_context_t get_context() {
     out.rsp = uctx.uc_mcontext.gregs[REG_RSP];
     out.rbp = uctx.uc_mcontext.gregs[REG_RBP];
 
-    unwind_context(out);
+    if(!unwind_context(out)) {
+        memset(&out, 0, sizeof(unwind_context_t));
+        return out;
+    }
     return out;
 }
 
-/** Get the `fde_func_t` function handling the given program counter — it may
- * be by calling a lookup function, or by directly looking into the ELF
- * symbols, depending on the state of the experiment. This is an abstraction
- * function. */
-_fde_func_t fde_handler_for_pc(uintptr_t pc) {
+MemoryMapEntry* get_mmap_entry(uintptr_t pc) {
     // Get the memory_map entry
     auto mmap_entry_it = memory_map.lower_bound(pc);
     if(mmap_entry_it == memory_map.end()) {
@@ -168,10 +165,21 @@ _fde_func_t fde_handler_for_pc(uintptr_t pc) {
     if(!(mmap_entry.beg <= pc && pc <= mmap_entry.end))
         return nullptr;
 
+    return &mmap_entry;
+}
+
+/** Get the `fde_func_t` function handling the given program counter — it may
+ * be by calling a lookup function, or by directly looking into the ELF
+ * symbols, depending on the state of the experiment. This is an abstraction
+ * function. */
+_fde_func_t fde_handler_for_pc(uintptr_t pc, MemoryMapEntry& mmap_entry) {
     // Get the lookup function
     _fde_func_t (*lookup)(uintptr_t) =
         (_fde_func_t (*)(uintptr_t)) (
                 dlsym(mmap_entry.eh_dl_handle, "_fde_lookup"));
+
+    if(lookup == nullptr)
+        return nullptr;
 
     // Get the translated pc
     uintptr_t tr_pc = pc - mmap_entry.beg;
@@ -179,15 +187,23 @@ _fde_func_t fde_handler_for_pc(uintptr_t pc) {
     // Get the actual function
     _fde_func_t rfunc = lookup(tr_pc);
 
+    if(rfunc == nullptr)
+        return nullptr;
+
     return rfunc;
 }
 
 bool unwind_context(unwind_context_t& ctx) {
-    _fde_func_t fde_func = fde_handler_for_pc(ctx.rip);
+    MemoryMapEntry* mmap_entry = get_mmap_entry(ctx.rip);
+    if(mmap_entry == nullptr)
+        return false;
+
+    _fde_func_t fde_func = fde_handler_for_pc(ctx.rip, *mmap_entry);
     if(fde_func == nullptr)
         return false;
 
-    ctx = fde_func(ctx, ctx.rip);
+    uintptr_t tr_pc = ctx.rip - mmap_entry->beg;
+    ctx = fde_func(ctx, tr_pc);
     return true;
 }
 
