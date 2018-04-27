@@ -103,14 +103,13 @@ void CodeGenerator::gen_of_reg(const SimpleDwarf::DwRegister& reg) {
             os << "0";  // FIXME do better?
             break;
         case SimpleDwarf::DwRegister::REG_REGISTER:
-            os << "*((uintptr_t*)("
-               << ctx_of_dw_name(reg.reg)
-               << " + ("
-               << reg.offset
-               << ")))";
+            os << ctx_of_dw_name(reg.reg)
+                << " + (" << reg.offset << ")";
             break;
         case SimpleDwarf::DwRegister::REG_CFA_OFFSET:
-            os << "out_ctx.rip + (" << reg.offset << ")";
+            os << "*((uintptr_t*)(out_ctx.rsp + ("
+               << reg.offset
+               << ")))";
             break;
         case SimpleDwarf::DwRegister::REG_NOT_IMPLEMENTED:
             os << "0; assert(0)";
