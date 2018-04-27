@@ -65,8 +65,8 @@ void CodeGenerator::gen_of_row(
         const SimpleDwarf::DwRow& row,
         uintptr_t row_end)
 {
-    os << "\t\tcase " << row.ip
-       << " ... " << row_end << ":" << endl;
+    os << "\t\tcase " << std::hex << "0x" << row.ip
+       << " ... 0x" << row_end << ":" << std::dec << endl;
 
     os << "\t\t\t" << "out_ctx.rsp = ";
     gen_of_reg(row.cfa);
@@ -121,7 +121,8 @@ void CodeGenerator::gen_lookup(const std::vector<LookupEntry>& entries) {
     os << "_fde_func_t _fde_lookup(uintptr_t pc) {\n"
        << "\tswitch(pc) {" << endl;
     for(const auto& entry: entries) {
-        os << "\t\tcase " << entry.beg << " ... " << entry.end - 1 << ":\n"
+        os << "\t\tcase " << std::hex << "0x" << entry.beg
+           << " ... 0x" << entry.end - 1 << ":\n" << std::dec
            << "\t\t\treturn &" << entry.name << ";" << endl;
     }
     os << "\t\tdefault: assert(0);\n"
