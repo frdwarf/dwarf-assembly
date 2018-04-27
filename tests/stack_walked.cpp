@@ -7,12 +7,12 @@ void fill_my_stack1(volatile int&);
 void fill_my_stack2(volatile int&);
 
 void stack_filled() {
-    int frame_id = 1;
+    int frame_id = 0;
     walk_stack([&frame_id](const unwind_context_t& ctx) {
             Dl_info func_info;
             int dl_rc = dladdr((void*) ctx.rip, &func_info);
-            printf("#%d - %s - RIP=%lx, RBP=%lx, RSP=%lx\n",
-                    frame_id,
+            printf("#%d - %s — %%rip = 0x%lx, %%rbp = 0x%lx, %%rsp = 0x%lx\n",
+                    ++frame_id,
                     (dl_rc != 0) ? func_info.dli_sname : "[Unknown func]",
                     ctx.rip,
                     ctx.rbp,
