@@ -183,7 +183,17 @@ _fde_func_t fde_handler_for_pc(uintptr_t pc) {
 }
 
 bool unwind_context(unwind_context_t& ctx) {
+    _fde_func_t fde_func = fde_handler_for_pc(ctx.rip);
+    if(fde_func == nullptr)
+        return false;
+
+    ctx = fde_func(ctx, ctx.rip);
+    return true;
 }
 
 void walk_stack(const std::function<void(const unwind_context_t&)>& mapped) {
+    unwind_context_t ctx = get_context();
+    do {
+        mapped(ctx);
+    } while(unwind_context(ctx));
 }
