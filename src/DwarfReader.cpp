@@ -28,6 +28,7 @@ SimpleDwarf DwarfReader::read() const {
 
 SimpleDwarf::Fde DwarfReader::read_fde(const core::Fde& fde) const {
     SimpleDwarf::Fde output;
+    output.fde_offset = fde.get_fde_offset();
     output.beg_ip = fde.get_low_pc();
     output.end_ip = fde.get_low_pc() + fde.get_func_length();
 

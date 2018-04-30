@@ -31,7 +31,10 @@ class CodeGenerator {
         };
 
         void gen_of_dwarf();
-        void gen_of_fde(const SimpleDwarf::Fde& fde);
+        void gen_unwind_func_header(const std::string& name);
+        void gen_unwind_func_footer();
+        void gen_function_of_fde(const SimpleDwarf::Fde& fde);
+        void gen_switchpart_of_fde(const SimpleDwarf::Fde& fde);
         void gen_of_row(
                 const SimpleDwarf::DwRow& row,
                 uintptr_t row_end);

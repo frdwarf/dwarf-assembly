@@ -1,5 +1,6 @@
 #include "CodeGenerator.hpp"
 #include "gen_context_struct.hpp"
+#include "settings.hpp"
 
 using namespace std;
 
@@ -23,42 +24,71 @@ void CodeGenerator::gen_of_dwarf() {
     os << CONTEXT_STRUCT_STR << '\n'
        << PRELUDE << '\n' << endl;
 
-    vector<LookupEntry> lookup_entries;
+    switch(settings::switch_generation_policy) {
+        case settings::SGP_SwitchPerFunc:
+        {
+            vector<LookupEntry> lookup_entries;
 
-    // A function per FDE
-    for(const auto& fde: dwarf.fde_list) {
-        LookupEntry cur_entry;
-        cur_entry.name = naming_scheme(fde);
-        cur_entry.beg = fde.beg_ip;
-        cur_entry.end = fde.end_ip;
-        lookup_entries.push_back(cur_entry);
+            // A function per FDE
+            for(const auto& fde: dwarf.fde_list) {
+                LookupEntry cur_entry;
+                cur_entry.name = naming_scheme(fde);
+                cur_entry.beg = fde.beg_ip;
+                cur_entry.end = fde.end_ip;
+                lookup_entries.push_back(cur_entry);
 
-        gen_of_fde(fde);
-        os << endl;
+                gen_function_of_fde(fde);
+                os << endl;
+            }
+
+            gen_lookup(lookup_entries);
+            break;
+        }
+        case settings::SGP_GlobalSwitch:
+        {
+            gen_unwind_func_header("_eh_elf");
+            for(const auto& fde: dwarf.fde_list) {
+                gen_switchpart_of_fde(fde);
+            }
+            gen_unwind_func_footer();
+            break;
+        }
     }
-
-    gen_lookup(lookup_entries);
 }
 
-void CodeGenerator::gen_of_fde(const SimpleDwarf::Fde& fde) {
+void CodeGenerator::gen_unwind_func_header(const std::string& name) {
     os << "unwind_context_t "
-       << naming_scheme(fde)
+       << name
        << "(unwind_context_t ctx, uintptr_t pc) {\n"
        << "\tunwind_context_t out_ctx;\n"
        << "\tswitch(pc) {" << endl;
+}
 
+void CodeGenerator::gen_unwind_func_footer() {
+    os << "\t\tdefault: assert(0);\n"
+       << "\t}\n"
+       << "}" << endl;
+}
+
+void CodeGenerator::gen_function_of_fde(const SimpleDwarf::Fde& fde) {
+    gen_unwind_func_header(naming_scheme(fde));
+
+    gen_switchpart_of_fde(fde);
+
+    gen_unwind_func_footer();
+}
+
+void CodeGenerator::gen_switchpart_of_fde(const SimpleDwarf::Fde& fde) {
+    os << "\t\t/********** FDE: 0x" << std::hex << fde.fde_offset
+       << ", PC = 0x" << fde.beg_ip << std::dec << " */" << std::endl;
     for(size_t fde_row_id=0; fde_row_id < fde.rows.size(); ++fde_row_id)
     {
-        uintptr_t up_bound = fde.end_ip;
+        uintptr_t up_bound = fde.end_ip - 1;
         if(fde_row_id != fde.rows.size() - 1)
             up_bound = fde.rows[fde_row_id + 1].ip - 1;
 
         gen_of_row(fde.rows[fde_row_id], up_bound);
     }
-
-    os << "\t\tdefault: assert(0);\n"
-       << "\t}\n"
-       << "}" << endl;
 }
 
 void CodeGenerator::gen_of_row(

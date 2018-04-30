@@ -8,17 +8,72 @@
 #include "DwarfReader.hpp"
 #include "CodeGenerator.hpp"
 
+#include "settings.hpp"
+
 using namespace std;
 
+struct MainOptions {
+    std::string elf_path;
+};
 
-int main(int argc, char** argv) {
-    if(argc < 2) {
-        cerr << "Error: missing input file. Usage:" << endl
-             << argv[0] << " path/to/binary.elf" << endl;
-        exit(1);
+MainOptions options_parse(int argc, char** argv) {
+    MainOptions out;
+
+    bool seen_switch_gen_policy = false;
+    bool print_helptext = false;
+    int exit_status = -1;
+
+    for(int option_pos = 1; option_pos < argc; ++option_pos) {
+        std::string option(argv[option_pos]);
+
+        if(option.find("-") != 0) { // This is not an option argument
+            out.elf_path = option;
+        }
+
+        else if(option == "--help") {
+            print_helptext = true;
+            exit_status = 0;
+        }
+
+        else if(option == "--switch-per-func") {
+            seen_switch_gen_policy = true;
+            settings::switch_generation_policy =
+                settings::SGP_SwitchPerFunc;
+        }
+        else if(option == "--global-switch") {
+            seen_switch_gen_policy = true;
+            settings::switch_generation_policy =
+                settings::SGP_GlobalSwitch;
+        }
     }
 
-    SimpleDwarf parsed_dwarf = DwarfReader(argv[1]).read();
+    if(!seen_switch_gen_policy) {
+        cerr << "Error: please use either --switch-per-func or "
+             << "--global-switch." << endl;
+        print_helptext = true;
+        exit_status = 1;
+    }
+    if(out.elf_path.empty()) {
+        cerr << "Error: missing input file." << endl;
+        print_helptext = true;
+        exit_status = 1;
+    }
+
+    if(print_helptext) {
+        cerr << "Usage: "
+             << argv[0]
+             << " [--switch-per-func | --global-switch] elf_path"
+             << endl;
+    }
+    if(exit_status >= 0)
+        exit(exit_status);
+
+    return out;
+}
+
+int main(int argc, char** argv) {
+    MainOptions opts = options_parse(argc, argv);
+    SimpleDwarf parsed_dwarf = DwarfReader(opts.elf_path).read();
 
     CodeGenerator code_gen(
             parsed_dwarf,
