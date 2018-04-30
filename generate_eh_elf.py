@@ -49,7 +49,7 @@ def elf_so_deps(path):
              "{}.").format(path, e.returncode))
 
 
-def gen_dw_asm_c(obj_path, out_path):
+def gen_dw_asm_c(obj_path, out_path, dwarf_assembly_args):
     ''' Generate the C code produced by dwarf-assembly from `obj_path`, saving
     it as `out_path` '''
 
@@ -57,7 +57,7 @@ def gen_dw_asm_c(obj_path, out_path):
         with open(out_path, 'w') as out_handle:
             # TODO enhance error handling
             dw_asm_output = subprocess.check_output(
-                [DWARF_ASSEMBLY_BIN, obj_path]) \
+                [DWARF_ASSEMBLY_BIN, obj_path] + dwarf_assembly_args) \
                 .decode('utf-8')
             out_handle.write(dw_asm_output)
     except subprocess.CalledProcessError as e:
@@ -69,13 +69,15 @@ def gen_dw_asm_c(obj_path, out_path):
                  e.returncode))
 
 
-def gen_eh_elf(obj_path, out_dir=None):
+def gen_eh_elf(obj_path, out_dir=None, dwarf_assembly_args=None):
     ''' Generate the eh_elf corresponding to `obj_path`, saving it as
     `out_dir/$(basename obj_path).eh_elf.so` (or in the current working
     directory if out_dir is None) '''
 
     if out_dir is None:
         out_dir = '.'
+    if dwarf_assembly_args is None:
+        dwarf_assembly_args = []
 
     print("> {}...".format(os.path.basename(obj_path)))
 
@@ -96,7 +98,7 @@ def gen_eh_elf(obj_path, out_dir=None):
         # Generate the C source file
         print("\tGenerating C…")
         c_path = os.path.join(compile_dir, (out_base_name + '.c'))
-        gen_dw_asm_c(obj_path, c_path)
+        gen_dw_asm_c(obj_path, c_path, dwarf_assembly_args)
 
         # Compile it into a .o
         print("\tCompiling into .o…")
@@ -114,19 +116,22 @@ def gen_eh_elf(obj_path, out_dir=None):
             raise Exception("Failed to compile to a .so file")
 
 
-def gen_all_eh_elf(obj_path, out_dir=None):
+def gen_all_eh_elf(obj_path, out_dir=None, dwarf_assembly_args=None):
     ''' Call `gen_eh_elf` on obj_path and all its dependencies '''
     if out_dir is None:
         out_dir = '.'
+    if dwarf_assembly_args is None:
+        dwarf_assembly_args = []
 
     deps = elf_so_deps(obj_path)
     deps.append(obj_path)
     for dep in deps:
-        gen_eh_elf(dep, out_dir)
+        gen_eh_elf(dep, out_dir, dwarf_assembly_args)
 
 
 def process_args():
     ''' Process `sys.argv` arguments '''
+
     parser = argparse.ArgumentParser(
         description="Compile ELFs into their related eh_elfs",
     )
@@ -139,6 +144,15 @@ def process_args():
     parser.add_argument('-o', '--output', metavar="path",
                         help=("Save the generated objects at the given path "
                               "instead of the current working directory"))
+
+    switch_generation_policy = \
+        parser.add_mutually_exclusive_group(required=True)
+    switch_generation_policy.add_argument('--switch-per-func',
+                                          action='store_const', const='',
+                                          help=("Passed to dwarf-assembly."))
+    switch_generation_policy.add_argument('--global-switch',
+                                          action='store_const', const='',
+                                          help=("Passed to dwarf-assembly."))
     parser.add_argument('object', nargs='+',
                         help="The ELF object(s) to process")
     return parser.parse_args()
@@ -147,8 +161,19 @@ def process_args():
 def main():
     args = process_args()
 
+    DW_ASSEMBLY_OPTS = {
+        'switch_per_func': '--switch-per-func',
+        'global_switch': '--global-switch',
+    }
+
+    dwarf_assembly_opts = []
+    args_dict = vars(args)
+    for opt in DW_ASSEMBLY_OPTS:
+        if opt in args and args_dict[opt] is not None:
+            dwarf_assembly_opts.append(DW_ASSEMBLY_OPTS[opt])
+
     for obj in args.object:
-        args.gen_func(obj, args.output)
+        args.gen_func(obj, args.output, dwarf_assembly_opts)
 
 
 if __name__ == "__main__":
