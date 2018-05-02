@@ -9,6 +9,7 @@
 #include <string>
 #include <map>
 
+#define UNUSED(x) (void)(x)
 
 typedef void* dl_handle_t;
 
@@ -173,6 +174,7 @@ MemoryMapEntry* get_mmap_entry(uintptr_t pc) {
  * symbols, depending on the state of the experiment. This is an abstraction
  * function. */
 _fde_func_t fde_handler_for_pc(uintptr_t pc, MemoryMapEntry& mmap_entry) {
+#ifdef SGP_SWITCH_PER_FUNC
     // Get the lookup function
     _fde_func_t (*lookup)(uintptr_t) =
         (_fde_func_t (*)(uintptr_t)) (
@@ -191,6 +193,21 @@ _fde_func_t fde_handler_for_pc(uintptr_t pc, MemoryMapEntry& mmap_entry) {
         return nullptr;
 
     return rfunc;
+#elif SGP_GLOBAL_SWITCH
+    UNUSED(pc);
+    _fde_func_t global_switch =
+        (_fde_func_t) (dlsym(mmap_entry.eh_dl_handle, "_eh_elf"));
+
+    if(global_switch == nullptr)
+        return nullptr;
+
+    return global_switch;
+#else
+    UNUSED(pc);
+    UNUSED(mmap_entry);
+    assert(false); // Please compile with either -DSCP_SWITCH_PER_FUNC or
+                   // -DSCP_GLOBAL_SWITCH
+#endif
 }
 
 bool unwind_context(unwind_context_t& ctx) {
