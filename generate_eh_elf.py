@@ -29,8 +29,8 @@ def elf_so_deps(path):
     deps_list = []
 
     try:
-        ldd_output = subprocess.check_output(['/usr/bin/ldd', path],
-                                             encoding='utf8')
+        ldd_output = subprocess.check_output(['/usr/bin/ldd', path]) \
+            .decode('utf-8')
         ldd_re = re.compile(r'^.* => (.*) \(0x[0-9a-fA-F]*\)$')
 
         ldd_lines = ldd_output.strip().split('\n')
@@ -55,9 +55,10 @@ def gen_dw_asm_c(obj_path, out_path):
 
     try:
         with open(out_path, 'w') as out_handle:
+            # TODO enhance error handling
             dw_asm_output = subprocess.check_output(
-                [DWARF_ASSEMBLY_BIN, obj_path],
-                encoding='utf8')  # TODO enhance error handling
+                [DWARF_ASSEMBLY_BIN, obj_path]) \
+                .decode('utf-8')
             out_handle.write(dw_asm_output)
     except subprocess.CalledProcessError as e:
         raise Exception(
