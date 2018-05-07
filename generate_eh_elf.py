@@ -12,6 +12,7 @@ import subprocess
 import re
 import tempfile
 import argparse
+from collections import namedtuple
 
 
 DWARF_ASSEMBLY_BIN = os.path.join(
@@ -69,13 +70,69 @@ def gen_dw_asm_c(obj_path, out_path, dwarf_assembly_args):
                  e.returncode))
 
 
-def gen_eh_elf(obj_path, out_dir=None, dwarf_assembly_args=None):
+def do_remote(remote, command, send_files=None, retr_files=None):
+    def ssh_do(cmd_args, working_directory=None):
+        try:
+            cmd = ['ssh', remote]
+            if working_directory:
+                cmd += ['cd', working_directory, '&&']
+            cmd += cmd_args
+
+            return subprocess.check_output(cmd).decode('utf-8').strip()
+        except subprocess.CalledProcessError as e:
+            return None
+
+    def ssh_copy(what, where, is_upload):
+        if is_upload:
+            where = '{}:{}'.format(remote, where)
+        else:
+            what = '{}:{}'.format(remote, what)
+
+        subprocess.check_output(['scp', what, where])
+
+    TransferredFile = namedtuple('TransferredFile', 'local remote')
+
+    def interpret_transferred_file(descr):
+        if type(descr) == type(''):
+            return TransferredFile(descr, descr)
+        if os.path.isdir(descr[1]):
+            to = os.path.join(descr[1], descr[0])
+        else:
+            to = descr[1]
+        return TransferredFile(descr[0], to)
+
+    # Create temp dir
+    tmp_dir = ssh_do(['mktemp', '-d'])
+
+    # Upload `send_files`
+    for f in send_files:
+        dest = tmp_dir+'/'
+        ssh_copy(f, dest, is_upload=True)
+
+    # Do whatever must be done
+    output = ssh_do(command, working_directory=tmp_dir)
+
+    # Download `retr_files`
+    for f in map(interpret_transferred_file, retr_files):
+        src = os.path.join(tmp_dir, f.local)
+        ssh_copy(src, f.remote, is_upload=False)
+
+    # Remove temp dir
+    ssh_do(['rm', '-rf', tmp_dir])
+
+    return output
+
+
+def gen_eh_elf(obj_path, args, dwarf_assembly_args=None):
     ''' Generate the eh_elf corresponding to `obj_path`, saving it as
     `out_dir/$(basename obj_path).eh_elf.so` (or in the current working
     directory if out_dir is None) '''
 
-    if out_dir is None:
+    if args.output is None:
         out_dir = '.'
+    else:
+        out_dir = args.output
+
     if dwarf_assembly_args is None:
         dwarf_assembly_args = []
 
@@ -103,8 +160,19 @@ def gen_eh_elf(obj_path, out_dir=None, dwarf_assembly_args=None):
         # Compile it into a .o
         print("\tCompiling into .o…")
         o_path = os.path.join(compile_dir, (out_base_name + '.o'))
-        call_rc = subprocess.call(
-            [C_BIN, '-o', o_path, '-c', c_path, '-O3', '-fPIC'])
+        if args.remote:
+            remote_out = do_remote(
+                args.remote,
+                [C_BIN,
+                 '-o', out_base_name + '.o',
+                 '-c', out_base_name + '.c',
+                 '-O3', '-fPIC'],
+                send_files=[c_path],
+                retr_files=[(out_base_name + '.o', o_path)])
+            call_rc = 1 if remote_out is None else 0
+        else:
+            call_rc = subprocess.call(
+                [C_BIN, '-o', o_path, '-c', c_path, '-O3', '-fPIC'])
         if call_rc != 0:
             raise Exception("Failed to compile to a .o file")
 
@@ -116,17 +184,15 @@ def gen_eh_elf(obj_path, out_dir=None, dwarf_assembly_args=None):
             raise Exception("Failed to compile to a .so file")
 
 
-def gen_all_eh_elf(obj_path, out_dir=None, dwarf_assembly_args=None):
+def gen_all_eh_elf(obj_path, args, dwarf_assembly_args=None):
     ''' Call `gen_eh_elf` on obj_path and all its dependencies '''
-    if out_dir is None:
-        out_dir = '.'
     if dwarf_assembly_args is None:
         dwarf_assembly_args = []
 
     deps = elf_so_deps(obj_path)
     deps.append(obj_path)
     for dep in deps:
-        gen_eh_elf(dep, out_dir, dwarf_assembly_args)
+        gen_eh_elf(dep, args, dwarf_assembly_args)
 
 
 def process_args():
@@ -144,6 +210,9 @@ def process_args():
     parser.add_argument('-o', '--output', metavar="path",
                         help=("Save the generated objects at the given path "
                               "instead of the current working directory"))
+    parser.add_argument('--remote', metavar='ssh_args',
+                        help=("Execute the heavyweight commands on the remote "
+                              "machine, using `ssh ssh_args`."))
 
     switch_generation_policy = \
         parser.add_mutually_exclusive_group(required=True)
@@ -173,7 +242,7 @@ def main():
             dwarf_assembly_opts.append(DW_ASSEMBLY_OPTS[opt])
 
     for obj in args.object:
-        args.gen_func(obj, args.output, dwarf_assembly_opts)
+        args.gen_func(obj, args, dwarf_assembly_opts)
 
 
 if __name__ == "__main__":
