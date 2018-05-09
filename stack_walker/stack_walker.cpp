@@ -5,6 +5,7 @@
 #include <link.h>
 #include <cstring>
 #include <cassert>
+#include <cctype>
 #include <cstdio>
 #include <string>
 #include <map>
@@ -44,10 +45,12 @@ std::string readlink_rec(const char* path) {
     strcpy(buf[1], path);
 
     do {
-        int rc = readlink(buf[parity], buf[1-parity], 1024);
+        ssize_t rc = readlink(buf[parity], buf[1-parity], 1024);
         parity = 1 - parity;
         if(rc < 0)
             break;
+        else
+            buf[parity][rc] = '\0';
     } while(true);
 
     return std::string(buf[1 - parity]);
