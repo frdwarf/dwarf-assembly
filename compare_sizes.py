@@ -9,7 +9,7 @@ import os
 import subprocess
 from collections import namedtuple
 
-from generate_eh_elf import elf_so_deps
+from shared_python import elf_so_deps
 
 
 ''' An ELF object, including the path to the ELF itself, and the path to its
@@ -41,11 +41,11 @@ def section_size(elf_loc, section_name):
     except subprocess.CalledProcessError as exn:
         raise Exception(("Cannot obtain section {} size for {}: objdump "
                          "terminated with exit code {}.").format(
-                             section_name, elf_loc))
+                             section_name, elf_loc, exn.returncode))
 
     for line in objdump_out.split('\n'):
         line = line.strip()
-        if not line or not ('0' <= line[0] <= '9'):  # not a section line
+        if not line or not '0' <= line[0] <= '9':  # not a section line
             continue
 
         spl = line.split()

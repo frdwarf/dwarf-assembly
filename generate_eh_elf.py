@@ -9,10 +9,10 @@ all the shared objects it depends upon.
 import os
 import sys
 import subprocess
-import re
 import tempfile
 import argparse
-from collections import namedtuple
+
+from shared_python import elf_so_deps, do_remote, is_newer
 
 
 DWARF_ASSEMBLY_BIN = os.path.join(
@@ -21,33 +21,6 @@ DWARF_ASSEMBLY_BIN = os.path.join(
 C_BIN = (
     'gcc' if 'C' not in os.environ
     else os.environ['C'])
-
-
-def elf_so_deps(path):
-    ''' Get the list of shared objects dependencies of the given ELF object.
-    This is obtained by running `ldd`. '''
-
-    deps_list = []
-
-    try:
-        ldd_output = subprocess.check_output(['/usr/bin/ldd', path]) \
-            .decode('utf-8')
-        ldd_re = re.compile(r'^.* => (.*) \(0x[0-9a-fA-F]*\)$')
-
-        ldd_lines = ldd_output.strip().split('\n')
-        for line in ldd_lines:
-            line = line.strip()
-            match = ldd_re.match(line)
-            if match is None:
-                continue  # Just ignore that line — it might be eg. linux-vdso
-            deps_list.append(match.group(1))
-
-        return deps_list
-
-    except subprocess.CalledProcessError as e:
-        raise Exception(
-            ("Cannot get dependencies for {}: ldd terminated with exit code "
-             "{}.").format(path, e.returncode))
 
 
 def gen_dw_asm_c(obj_path, out_path, dwarf_assembly_args):
@@ -61,66 +34,13 @@ def gen_dw_asm_c(obj_path, out_path, dwarf_assembly_args):
                 [DWARF_ASSEMBLY_BIN, obj_path] + dwarf_assembly_args) \
                 .decode('utf-8')
             out_handle.write(dw_asm_output)
-    except subprocess.CalledProcessError as e:
+    except subprocess.CalledProcessError as exn:
         raise Exception(
             ("Cannot generate C code from object file {} using {}: process "
              "terminated with exit code {}.").format(
                  obj_path,
                  DWARF_ASSEMBLY_BIN,
-                 e.returncode))
-
-
-def do_remote(remote, command, send_files=None, retr_files=None):
-    def ssh_do(cmd_args, working_directory=None):
-        try:
-            cmd = ['ssh', remote]
-            if working_directory:
-                cmd += ['cd', working_directory, '&&']
-            cmd += cmd_args
-
-            return subprocess.check_output(cmd).decode('utf-8').strip()
-        except subprocess.CalledProcessError as e:
-            return None
-
-    def ssh_copy(what, where, is_upload):
-        if is_upload:
-            where = '{}:{}'.format(remote, where)
-        else:
-            what = '{}:{}'.format(remote, what)
-
-        subprocess.check_output(['scp', what, where])
-
-    TransferredFile = namedtuple('TransferredFile', 'local remote')
-
-    def interpret_transferred_file(descr):
-        if type(descr) == type(''):
-            return TransferredFile(descr, descr)
-        if os.path.isdir(descr[1]):
-            to = os.path.join(descr[1], descr[0])
-        else:
-            to = descr[1]
-        return TransferredFile(descr[0], to)
-
-    # Create temp dir
-    tmp_dir = ssh_do(['mktemp', '-d'])
-
-    # Upload `send_files`
-    for f in send_files:
-        dest = tmp_dir+'/'
-        ssh_copy(f, dest, is_upload=True)
-
-    # Do whatever must be done
-    output = ssh_do(command, working_directory=tmp_dir)
-
-    # Download `retr_files`
-    for f in map(interpret_transferred_file, retr_files):
-        src = os.path.join(tmp_dir, f.local)
-        ssh_copy(src, f.remote, is_upload=False)
-
-    # Remove temp dir
-    ssh_do(['rm', '-rf', tmp_dir])
-
-    return output
+                 exn.returncode))
 
 
 def gen_eh_elf(obj_path, args, dwarf_assembly_args=None):
@@ -141,15 +61,8 @@ def gen_eh_elf(obj_path, args, dwarf_assembly_args=None):
     out_base_name = os.path.basename(obj_path) + '.eh_elf'
     out_so_path = os.path.join(out_dir, (out_base_name + '.so'))
 
-    try:
-        so_mtime = os.path.getmtime(out_so_path)
-        obj_mtime = os.path.getmtime(obj_path)
-
-        if obj_mtime < so_mtime:
-            return  # The object is recent enough, no need to recreate it
-    except OSError:
-        pass
-
+    if is_newer(out_so_path, obj_path):
+        return  # The object is recent enough, no need to recreate it
 
     with tempfile.TemporaryDirectory() as compile_dir:
         # Generate the C source file
