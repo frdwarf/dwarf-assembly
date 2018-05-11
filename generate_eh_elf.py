@@ -13,6 +13,7 @@ import tempfile
 import argparse
 
 from shared_python import elf_so_deps, do_remote, is_newer
+from extract_pc import generate_pc_list
 
 
 DWARF_ASSEMBLY_BIN = os.path.join(
@@ -60,11 +61,21 @@ def gen_eh_elf(obj_path, args, dwarf_assembly_args=None):
 
     out_base_name = os.path.basename(obj_path) + '.eh_elf'
     out_so_path = os.path.join(out_dir, (out_base_name + '.so'))
+    pc_list_dir = os.path.join(out_dir, 'pc_list')
 
     if is_newer(out_so_path, obj_path):
         return  # The object is recent enough, no need to recreate it
 
     with tempfile.TemporaryDirectory() as compile_dir:
+        # Generate PC list
+        if args.use_pc_list:
+            pc_list_path = \
+                os.path.join(pc_list_dir, out_base_name + '.pc_list')
+            os.makedirs(pc_list_dir, exist_ok=True)
+            print('\tGenerating PC list…')
+            generate_pc_list(obj_path, pc_list_path)
+            dwarf_assembly_args += ['--pc-list', pc_list_path]
+
         # Generate the C source file
         print("\tGenerating C…")
         c_path = os.path.join(compile_dir, (out_base_name + '.c'))
@@ -126,6 +137,10 @@ def process_args():
     parser.add_argument('--remote', metavar='ssh_args',
                         help=("Execute the heavyweight commands on the remote "
                               "machine, using `ssh ssh_args`."))
+    parser.add_argument('--use-pc-list', action='store_true',
+                        help=("Generate a PC list using `extract_pc.py` for "
+                              "each processed ELF file, and call "
+                              "dwarf-assembly accordingly."))
 
     switch_generation_policy = \
         parser.add_mutually_exclusive_group(required=True)
