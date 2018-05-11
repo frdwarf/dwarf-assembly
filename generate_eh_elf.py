@@ -63,7 +63,7 @@ def gen_eh_elf(obj_path, args, dwarf_assembly_args=None):
     out_so_path = os.path.join(out_dir, (out_base_name + '.so'))
     pc_list_dir = os.path.join(out_dir, 'pc_list')
 
-    if is_newer(out_so_path, obj_path):
+    if is_newer(out_so_path, obj_path) and not args.force:
         return  # The object is recent enough, no need to recreate it
 
     with tempfile.TemporaryDirectory() as compile_dir:
@@ -144,6 +144,10 @@ def process_args():
                         help=("Generate a PC list using `extract_pc.py` for "
                               "each processed ELF file, and call "
                               "dwarf-assembly accordingly."))
+    parser.add_argument('--force', '-f', action='store_true',
+                        help=("Force re-generation of the output files, even "
+                              "when those files are newer than the target "
+                              "ELF."))
     # c_opt_level
     opt_level_grp = parser.add_mutually_exclusive_group()
     opt_level_grp.add_argument('-O0', action='store_const', const='-O0',
