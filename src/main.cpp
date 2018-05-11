@@ -45,6 +45,17 @@ MainOptions options_parse(int argc, char** argv) {
             settings::switch_generation_policy =
                 settings::SGP_GlobalSwitch;
         }
+
+        else if(option == "--pc-list") {
+            if(option_pos + 1 == argc) { // missing parameter
+                exit_status = 1;
+                print_helptext = true;
+            }
+            else {
+                ++option_pos;
+                settings::pc_list = argv[option_pos];
+            }
+        }
     }
 
     if(!seen_switch_gen_policy) {

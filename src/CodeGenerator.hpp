@@ -4,8 +4,10 @@
 
 #include <ostream>
 #include <functional>
+#include <memory>
 
 #include "SimpleDwarf.hpp"
+#include "PcListReader.hpp"
 
 class CodeGenerator {
     public:
@@ -38,6 +40,7 @@ class CodeGenerator {
         void gen_of_row(
                 const SimpleDwarf::DwRow& row,
                 uintptr_t row_end);
+        void gen_case(uintptr_t low_bound, uintptr_t high_bound);
         void gen_of_reg(
                 const SimpleDwarf::DwRegister& reg);
 
@@ -46,6 +49,7 @@ class CodeGenerator {
     private:
         SimpleDwarf dwarf;
         std::ostream& os;
+        std::unique_ptr<PcListReader> pc_list;
 
         NamingScheme naming_scheme;
 };

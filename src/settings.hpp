@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <string>
+
 namespace settings {
     /// Controls how the eh_elf switches are generated
     enum SwitchGenerationPolicy {
@@ -12,4 +14,5 @@ namespace settings {
     };
 
     extern SwitchGenerationPolicy switch_generation_policy;
+    extern std::string pc_list;
 }

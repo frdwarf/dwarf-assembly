@@ -2,6 +2,8 @@
 #include "gen_context_struct.hpp"
 #include "settings.hpp"
 
+#include <algorithm>
+
 using namespace std;
 
 static const char* PRELUDE =
@@ -13,8 +15,12 @@ CodeGenerator::CodeGenerator(
         const SimpleDwarf& dwarf,
         std::ostream& os,
         NamingScheme naming_scheme):
-    dwarf(dwarf), os(os), naming_scheme(naming_scheme)
-{}
+    dwarf(dwarf), os(os), pc_list(nullptr), naming_scheme(naming_scheme)
+{
+    if(!settings::pc_list.empty()) {
+        pc_list = make_unique<PcListReader>(settings::pc_list);
+    }
+}
 
 void CodeGenerator::generate() {
     gen_of_dwarf();
@@ -95,8 +101,7 @@ void CodeGenerator::gen_of_row(
         const SimpleDwarf::DwRow& row,
         uintptr_t row_end)
 {
-    os << "\t\tcase " << std::hex << "0x" << row.ip
-       << " ... 0x" << row_end << ":" << std::dec << endl;
+    gen_case(row.ip, row_end);
 
     os << "\t\t\t" << "out_ctx.rsp = ";
     gen_of_reg(row.cfa);
@@ -111,6 +116,28 @@ void CodeGenerator::gen_of_row(
     os << ';' << endl;
 
     os << "\t\t\treturn " << "out_ctx" << ";" << endl;
+}
+
+void CodeGenerator::gen_case(uintptr_t low_bound, uintptr_t high_bound) {
+    if(pc_list == nullptr) {
+        os << "\t\tcase " << std::hex << "0x" << low_bound
+           << " ... 0x" << high_bound << ":" << std::dec << endl;
+    }
+    else {
+        const auto& first_it = lower_bound(
+                pc_list->get_list().begin(),
+                pc_list->get_list().end(),
+                low_bound);
+        const auto& last_it = upper_bound(
+                pc_list->get_list().begin(),
+                pc_list->get_list().end(),
+                high_bound);
+
+        os << std::hex;
+        for(auto it = first_it; it != last_it; ++it)
+            os << "\t\tcase 0x" << *it << ":\n";
+        os << std::dec;
+    }
 }
 
 static const char* ctx_of_dw_name(SimpleDwarf::MachineRegister reg) {
