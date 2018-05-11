@@ -19,6 +19,7 @@ CodeGenerator::CodeGenerator(
 {
     if(!settings::pc_list.empty()) {
         pc_list = make_unique<PcListReader>(settings::pc_list);
+        pc_list->read();
     }
 }
 
@@ -132,6 +133,9 @@ void CodeGenerator::gen_case(uintptr_t low_bound, uintptr_t high_bound) {
                 pc_list->get_list().begin(),
                 pc_list->get_list().end(),
                 high_bound);
+
+        if(first_it == pc_list->get_list().end())
+            throw CodeGenerator::InvalidPcList();
 
         os << std::hex;
         for(auto it = first_it; it != last_it; ++it)

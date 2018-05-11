@@ -11,10 +11,10 @@
 class PcListReader {
     public:
         /// Thrown when the file is somehow not readable
-        class CannotReadFile: std::exception {};
+        class CannotReadFile: public std::exception {};
 
         /// Thrown when the file contains bad content (probably not aligned 8B)
-        class BadFormat: std::exception {};
+        class BadFormat: public std::exception {};
 
         PcListReader(const std::string& path);
 

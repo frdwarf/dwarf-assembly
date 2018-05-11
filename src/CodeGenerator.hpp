@@ -18,6 +18,8 @@ class CodeGenerator {
         /// Unimplemented case
         class NotImplementedCase: public std::exception {};
 
+        class InvalidPcList: public std::exception {};
+
         /** Create a CodeGenerator to generate code for the given dwarf, on the
          * given std::ostream object (eg. cout). */
         CodeGenerator(const SimpleDwarf& dwarf, std::ostream& os,

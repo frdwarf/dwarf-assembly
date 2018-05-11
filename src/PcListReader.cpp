@@ -18,8 +18,11 @@ void PcListReader::read() {
 
     while(!handle.eof()) {
         handle.read((char*)buffer, 8);
-        if(handle.gcount() != 8)
+        if(handle.gcount() != 8) {
+            if(handle.gcount() == 0)
+                break;
             throw PcListReader::BadFormat();
+        }
 
         last_pc = 0;
         for(int shift = 0; shift < 8; ++shift) {
