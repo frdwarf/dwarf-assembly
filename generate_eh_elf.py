@@ -84,19 +84,22 @@ def gen_eh_elf(obj_path, args, dwarf_assembly_args=None):
         # Compile it into a .o
         print("\tCompiling into .o…")
         o_path = os.path.join(compile_dir, (out_base_name + '.o'))
+        opt_level = args.c_opt_level
+        if opt_level is None:
+            opt_level = '-O3'
         if args.remote:
             remote_out = do_remote(
                 args.remote,
                 [C_BIN,
                  '-o', out_base_name + '.o',
                  '-c', out_base_name + '.c',
-                 '-O3', '-fPIC'],
+                 opt_level, '-fPIC'],
                 send_files=[c_path],
                 retr_files=[(out_base_name + '.o', o_path)])
             call_rc = 1 if remote_out is None else 0
         else:
             call_rc = subprocess.call(
-                [C_BIN, '-o', o_path, '-c', c_path, '-O3', '-fPIC'])
+                [C_BIN, '-o', o_path, '-c', c_path, opt_level, '-fPIC'])
         if call_rc != 0:
             raise Exception("Failed to compile to a .o file")
 
@@ -141,6 +144,28 @@ def process_args():
                         help=("Generate a PC list using `extract_pc.py` for "
                               "each processed ELF file, and call "
                               "dwarf-assembly accordingly."))
+    # c_opt_level
+    opt_level_grp = parser.add_mutually_exclusive_group()
+    opt_level_grp.add_argument('-O0', action='store_const', const='-O0',
+                               dest='c_opt_level',
+                               help=("Compile C file with this optimization "
+                                     "level."))
+    opt_level_grp.add_argument('-O1', action='store_const', const='-O1',
+                               dest='c_opt_level',
+                               help=("Compile C file with this optimization "
+                                     "level."))
+    opt_level_grp.add_argument('-O2', action='store_const', const='-O2',
+                               dest='c_opt_level',
+                               help=("Compile C file with this optimization "
+                                     "level."))
+    opt_level_grp.add_argument('-O3', action='store_const', const='-O3',
+                               dest='c_opt_level',
+                               help=("Compile C file with this optimization "
+                                     "level."))
+    opt_level_grp.add_argument('-Os', action='store_const', const='-Os',
+                               dest='c_opt_level',
+                               help=("Compile C file with this optimization "
+                                     "level."))
 
     switch_generation_policy = \
         parser.add_mutually_exclusive_group(required=True)
