@@ -38,6 +38,18 @@ def generate_pc_list(elf, out_path):
                 out_handle.write(pc_bytes)
 
 
+def generate_all_pc_list(out_dir, elf_list):
+    ''' Calls `generate_pc_list` on every object in `elf_list`, saving the
+    result to `out_dir/[file].pc_list`. '''
+
+    for obj in elf_list:
+        basename = os.path.basename(obj)
+        print('> {}…'.format(basename))
+        out_path = os.path.join(out_dir,
+                                basename + '.pc_list')
+        generate_pc_list(obj, out_path)
+
+
 def process_args():
     ''' Process `sys.argv` arguments '''
 
@@ -66,12 +78,7 @@ def main():
         for obj in args.object:
             objs_list += elf_so_deps(obj)
 
-    for obj in objs_list:
-        basename = os.path.basename(obj)
-        print('> {}…'.format(basename))
-        out_path = os.path.join(args.output,
-                                basename + '.pc_list')
-        generate_pc_list(obj, out_path)
+    generate_all_pc_list(args.output, objs_list)
 
 
 if __name__ == '__main__':
