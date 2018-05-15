@@ -18,3 +18,12 @@ As of now, this project relies on the following libraries:
 
 These libraries are expected to be installed somewhere your compiler can find
 them.
+
+## Scripts and directories
+
+* `./generate_eh_elf.py`: generate `.eh_elf.so` files for a binary (and its
+  dependencies if required)
+* `./compare_sizes.py`: compare the sizes of the `.eh_frame` of a binary (and
+  its dependencies) with the sizes of the `.text` of the generated ELFs.
+* `./extract_pc.py`: extracts a list of valid program counters of an ELF and
+  produce a file as read by `dwarf-assembly`
