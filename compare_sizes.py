@@ -29,8 +29,8 @@ def format_size(size):
     return '{:.1f} {}'.format(size, units[cur_unit])
 
 
-def section_size(elf_loc, section_name):
-    ''' Find the size of a given section in some elf file '''
+def invoke_objdump_headers(elf_loc):
+    ''' Call objdump -h, returning the list of lines outputted '''
 
     if not os.path.isfile(elf_loc):
         raise FileNotFoundError
@@ -39,21 +39,29 @@ def section_size(elf_loc, section_name):
         objdump_out = subprocess.check_output(['objdump', '-h', elf_loc]) \
             .decode('utf-8')
     except subprocess.CalledProcessError as exn:
-        raise Exception(("Cannot obtain section {} size for {}: objdump "
+        raise Exception(("Cannot run objdump on {}: objdump "
                          "terminated with exit code {}.").format(
-                             section_name, elf_loc, exn.returncode))
+                             elf_loc, exn.returncode))
 
-    for line in objdump_out.split('\n'):
+    return objdump_out.split('\n')
+
+
+def get_elf_sections(elf_loc):
+    ''' List the ELF sections of the given ELF '''
+
+    sections = {}
+    for line in invoke_objdump_headers(elf_loc):
         line = line.strip()
         if not line or not '0' <= line[0] <= '9':  # not a section line
             continue
 
         spl = line.split()
-        if spl[1] != section_name:
-            continue
+        sections[spl[1]] = {
+            'name': spl[1],
+            'size': int(spl[2], 0x10),
+        }
 
-        return int(spl[2], 0x10)
-    raise Exception("No such section {} in {}".format(section_name, elf_loc))
+    return sections
 
 
 def matching_eh_elf(eh_locs, elf_name):
@@ -114,12 +122,11 @@ def main():
     args = process_args()
     objs = objects_list(args)
 
-    section_size(objs[0].elf, '.eh_frame')
-
     col_names = [
         'Shared object',
         'Orig eh_frame',
-        'Gen eh_elf',
+        'Gen eh_elf .text',
+        '+ .rodata',
         'Growth',
     ]
 
@@ -128,45 +135,64 @@ def main():
     displayed_name_filter = lambda x: os.path.basename(x.elf)
     max_elf_name = max(map(lambda x: len(displayed_name_filter(x)), objs))
     col_len.append(max(max_elf_name, len(col_names[0])))
-    for i in range(1, 4):
+    for i in range(1, len(col_names)):
         col_len.append(len(col_names[i]) + 1)
     col_len = list(map(str, col_len))
 
     header_format = ('{:<' + col_len[0] + '}   '
                      '{:<' + col_len[1] + '}   '
                      '{:<' + col_len[2] + '}   '
-                     '{:<' + col_len[3] + '}')
+                     '{:<' + col_len[3] + '}   '
+                     '{:<' + col_len[4] + '}')
     row_format = ('{:>' + col_len[0] + '}   '
                   '{:>' + col_len[1] + '}   '
                   '{:>' + col_len[2] + '}   '
-                  '{:>' + col_len[3] + '}')
+                  '{:>' + col_len[3] + '}   '
+                  '{:>' + col_len[4] + '}')
     print(header_format.format(
         col_names[0],
         col_names[1],
         col_names[2],
         col_names[3],
+        col_names[4],
     ))
 
     total_eh_frame_size = 0
+    total_eh_elf_text_size = 0
     total_eh_elf_size = 0
 
     for obj in objs:
-        eh_frame_size = section_size(obj.elf, '.eh_frame')
-        eh_elf_size = section_size(obj.eh_elf, '.text')
+        elf_sections = get_elf_sections(obj.elf)
+        eh_elf_sections = get_elf_sections(obj.eh_elf)
+
+        eh_frame_size = elf_sections['.eh_frame']['size']
+        eh_elf_text_size = eh_elf_sections['.text']['size']
+        eh_elf_size = eh_elf_text_size + eh_elf_sections['.rodata']['size']
 
         total_eh_frame_size += eh_frame_size
+        total_eh_elf_text_size += eh_elf_text_size
         total_eh_elf_size += eh_elf_size
 
         print(row_format.format(
             displayed_name_filter(obj),
             format_size(eh_frame_size),
+            format_size(eh_elf_text_size),
             format_size(eh_elf_size),
             '{:.2f}'.format(eh_elf_size / eh_frame_size)))
+
+        # Checking for missed big sections
+        for section in eh_elf_sections:
+            if section == '.text' or section == '.rodata':
+                continue
+            if eh_elf_sections[section]['size'] > eh_elf_size / 2:
+                print("\t\t/!\\ Section {} is big ({}) in the eh_elf".format(
+                    section, format_size(eh_elf_sections[section]['size'])))
 
     print(row_format.format(
         'Total',
         format_size(total_eh_frame_size),
         format_size(total_eh_elf_size),
+        format_size(total_eh_elf_text_size),
         '{:.2f}'.format(total_eh_elf_size / total_eh_frame_size)))
 
 
