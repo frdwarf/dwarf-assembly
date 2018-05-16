@@ -224,6 +224,9 @@ bool unwind_context(unwind_context_t& ctx) {
 
     uintptr_t tr_pc = ctx.rip - mmap_entry->beg;
     ctx = fde_func(ctx, tr_pc);
+
+    if(ctx.rbp == 0 || ctx.rip + 1 == 0)
+        return false;
     return true;
 }
 

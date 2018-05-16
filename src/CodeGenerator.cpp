@@ -3,6 +3,7 @@
 #include "settings.hpp"
 
 #include <algorithm>
+#include <limits>
 
 using namespace std;
 
@@ -161,7 +162,7 @@ static const char* ctx_of_dw_name(SimpleDwarf::MachineRegister reg) {
 void CodeGenerator::gen_of_reg(const SimpleDwarf::DwRegister& reg) {
     switch(reg.type) {
         case SimpleDwarf::DwRegister::REG_UNDEFINED:
-            os << "0";  // FIXME do better?
+            os << std::numeric_limits<uintptr_t>::max() << "ull";
             break;
         case SimpleDwarf::DwRegister::REG_REGISTER:
             os << ctx_of_dw_name(reg.reg)
