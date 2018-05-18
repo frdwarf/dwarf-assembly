@@ -9,12 +9,6 @@
 
 #include "../shared/context_struct.h"
 
-/** Handled registers list */
-enum StackWalkerRegisters {
-    SW_REG_RIP,
-    SW_REG_RSP,
-    SW_REG_RBP
-};
 
 /** Initialize the stack walker. This must be called only once.
  *
@@ -41,7 +35,3 @@ bool unwind_context(unwind_context_t& ctx);
 /** Call the passed function once per frame in the call stack, most recent
  * frame first, with the current context as its sole argument. */
 void walk_stack(const std::function<void(const unwind_context_t&)>& mapped);
-
-/** Get a register's value on an unwind_context_t. This is useful for other
- * implementations of stack_walker that use different unwind_context_t */
-uintptr_t get_register(const unwind_context_t& ctx, StackWalkerRegisters reg);

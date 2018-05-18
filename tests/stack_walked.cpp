@@ -14,9 +14,9 @@ void stack_filled() {
             printf("#%d - %s — %%rip = 0x%lx, %%rbp = 0x%lx, %%rsp = 0x%lx\n",
                     ++frame_id,
                     (dl_rc != 0) ? func_info.dli_sname : "[Unknown func]",
-                    ctx.rip,
-                    ctx.rbp,
-                    ctx.rsp);
+                    get_register(ctx, SW_REG_RIP),
+                    get_register(ctx, SW_REG_RBP),
+                    get_register(ctx, SW_REG_RSP));
         });
 }
 

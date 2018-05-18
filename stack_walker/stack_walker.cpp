@@ -214,6 +214,9 @@ _fde_func_t fde_handler_for_pc(uintptr_t pc, MemoryMapEntry& mmap_entry) {
 }
 
 bool unwind_context(unwind_context_t& ctx) {
+    if(ctx.rbp == 0 || ctx.rip + 1 == 0)
+        return false;
+
     MemoryMapEntry* mmap_entry = get_mmap_entry(ctx.rip);
     if(mmap_entry == nullptr)
         return false;
@@ -225,8 +228,6 @@ bool unwind_context(unwind_context_t& ctx) {
     uintptr_t tr_pc = ctx.rip - mmap_entry->beg;
     ctx = fde_func(ctx, tr_pc);
 
-    if(ctx.rbp == 0 || ctx.rip + 1 == 0)
-        return false;
     return true;
 }
 
@@ -235,4 +236,16 @@ void walk_stack(const std::function<void(const unwind_context_t&)>& mapped) {
     do {
         mapped(ctx);
     } while(unwind_context(ctx));
+}
+
+uintptr_t get_register(const unwind_context_t& ctx, StackWalkerRegisters reg) {
+    switch(reg) {
+        case SW_REG_RIP:
+            return ctx.rip;
+        case SW_REG_RSP:
+            return ctx.rsp;
+        case SW_REG_RBP:
+            return ctx.rbp;
+    }
+    assert(0);
 }
