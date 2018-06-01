@@ -56,6 +56,10 @@ MainOptions options_parse(int argc, char** argv) {
                 settings::pc_list = argv[option_pos];
             }
         }
+
+        else if(option == "--enable-deref-arg") {
+            settings::enable_deref_arg = true;
+        }
     }
 
     if(!seen_switch_gen_policy) {

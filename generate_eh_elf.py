@@ -148,6 +148,11 @@ def process_args():
                         help=("Force re-generation of the output files, even "
                               "when those files are newer than the target "
                               "ELF."))
+    parser.add_argument('--enable-deref-arg', action='store_true',
+                        help=("Pass the `--enable-deref-arg` to "
+                              "dwarf-assembly, enabling an extra `deref` "
+                              "argument for each lookup function, allowing "
+                              "to work on remote address spaces."))
     # c_opt_level
     opt_level_grp = parser.add_mutually_exclusive_group()
     opt_level_grp.add_argument('-O0', action='store_const', const='-O0',
@@ -197,6 +202,8 @@ def main():
     for opt in DW_ASSEMBLY_OPTS:
         if opt in args and args_dict[opt] is not None:
             dwarf_assembly_opts.append(DW_ASSEMBLY_OPTS[opt])
+    if args.enable_deref_arg:
+        dwarf_assembly_opts.append('--enable-deref-arg')
 
     for obj in args.object:
         args.gen_func(obj, args, dwarf_assembly_opts)

@@ -23,3 +23,20 @@ a list of all PCs in the ELF. The file contains one 8-bytes chunk per PC,
 which is the PC in little endian.
 
 `--pc-list PC_LIST_FILE_PATH`
+
+### Dereferencing function
+
+The lookup functions can also take an additional argument, a pointer to a
+function of prototype
+
+```C
+  uintptr_t deref(uintptr_t address)
+```
+
+that will, in spirit, contain a `return *((uintptr_t*)address);`.
+
+This argument can be used to work on remote address spaces instead of local
+address spaces, eg. to work with `libunwind`.
+
+To enable the presence of this argument, you must pass the option
+`--enable-deref-arg`

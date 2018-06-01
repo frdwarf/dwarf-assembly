@@ -15,4 +15,5 @@ namespace settings {
 
     extern SwitchGenerationPolicy switch_generation_policy;
     extern std::string pc_list;
+    extern bool enable_deref_arg;
 }

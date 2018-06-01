@@ -65,9 +65,13 @@ void CodeGenerator::gen_of_dwarf() {
 }
 
 void CodeGenerator::gen_unwind_func_header(const std::string& name) {
+    string deref_arg;
+    if(settings::enable_deref_arg)
+        deref_arg = ", deref_func_t deref";
+
     os << "unwind_context_t "
        << name
-       << "(unwind_context_t ctx, uintptr_t pc) {\n"
+       << "(unwind_context_t ctx, uintptr_t pc" << deref_arg << ") {\n"
        << "\tunwind_context_t out_ctx;\n"
        << "\tswitch(pc) {" << endl;
 }
@@ -168,11 +172,19 @@ void CodeGenerator::gen_of_reg(const SimpleDwarf::DwRegister& reg) {
             os << ctx_of_dw_name(reg.reg)
                 << " + (" << reg.offset << ")";
             break;
-        case SimpleDwarf::DwRegister::REG_CFA_OFFSET:
-            os << "*((uintptr_t*)(out_ctx.rsp + ("
-               << reg.offset
-               << ")))";
+        case SimpleDwarf::DwRegister::REG_CFA_OFFSET: {
+            if(settings::enable_deref_arg) {
+                os << "deref(out_ctx.rsp + ("
+                   << reg.offset
+                   << "))";
+            }
+            else {
+                os << "*((uintptr_t*)(out_ctx.rsp + ("
+                   << reg.offset
+                   << ")))";
+            }
             break;
+        }
         case SimpleDwarf::DwRegister::REG_NOT_IMPLEMENTED:
             os << "0; assert(0)";
             break;
