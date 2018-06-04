@@ -52,6 +52,9 @@ def do_remote(remote, command, send_files=None, retr_files=None):
 
     The command is executed on the machine described by `remote` (see ssh(1)).
 
+    If `preload` is set, then the remote file at this path will be sourced
+    before running any command, allowing to set PATH and other variables.
+
     send_files is a list of file paths that must be first copied at the root of
     a temporary directory on `remote` before running the command. Consider
     yourself jailed in that directory.
@@ -63,6 +66,11 @@ def do_remote(remote, command, send_files=None, retr_files=None):
     `local_path/file_name` if `local_path` is a directory, or as `local_path`
     otherwise, on the local machine.
     '''
+
+    if send_files is None:
+        send_files = []
+    if retr_files is None:
+        retr_files = []
 
     def ssh_do(cmd_args, working_directory=None):
         try:
