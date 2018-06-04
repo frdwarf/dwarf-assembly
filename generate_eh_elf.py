@@ -11,6 +11,7 @@ import sys
 import subprocess
 import tempfile
 import argparse
+from enum import Enum
 
 from shared_python import elf_so_deps, do_remote, is_newer
 from extract_pc import generate_pc_list
@@ -24,15 +25,53 @@ C_BIN = (
     else os.environ['C'])
 
 
-def gen_dw_asm_c(obj_path, out_path, dwarf_assembly_args):
+class SwitchGenPolicy(Enum):
+    ''' The various switch generation policies possible '''
+    SWITCH_PER_FUNC = '--switch-per-func'
+    GLOBAL_SWITCH = '--global-switch'
+
+
+class Config:
+    ''' Holds the run's settings '''
+
+    def __init__(self,
+                 output,
+                 objects,
+                 sw_gen_policy=SwitchGenPolicy.GLOBAL_SWITCH,
+                 force=False,
+                 use_pc_list=False,
+                 c_opt_level='3',
+                 remote=None):
+        self.output = output
+        self.objects = objects
+        self.sw_gen_policy = sw_gen_policy
+        self.force = force
+        self.use_pc_list = use_pc_list
+        self.c_opt_level = c_opt_level
+        self.remote = remote
+
+    def dwarf_assembly_args(self):
+        ''' Arguments to `dwarf_assembly` '''
+        return [self.sw_gen_policy.value]
+
+    def opt_level(self):
+        ''' The optimization level to pass to gcc '''
+        return '-O{}'.format(self.c_opt_level)
+
+
+def gen_dw_asm_c(obj_path, out_path, config, pc_list_path=None):
     ''' Generate the C code produced by dwarf-assembly from `obj_path`, saving
     it as `out_path` '''
+
+    dw_assembly_args = config.dwarf_assembly_args()
+    if pc_list_path is not None:
+        dw_assembly_args += ['--pc-list', pc_list_path]
 
     try:
         with open(out_path, 'w') as out_handle:
             # TODO enhance error handling
             dw_asm_output = subprocess.check_output(
-                [DWARF_ASSEMBLY_BIN, obj_path] + dwarf_assembly_args) \
+                [DWARF_ASSEMBLY_BIN, obj_path] + dw_assembly_args) \
                 .decode('utf-8')
             out_handle.write(dw_asm_output)
     except subprocess.CalledProcessError as exn:
@@ -44,18 +83,15 @@ def gen_dw_asm_c(obj_path, out_path, dwarf_assembly_args):
                  exn.returncode))
 
 
-def gen_eh_elf(obj_path, args, dwarf_assembly_args=None):
+def gen_eh_elf(obj_path, config):
     ''' Generate the eh_elf corresponding to `obj_path`, saving it as
     `out_dir/$(basename obj_path).eh_elf.so` (or in the current working
     directory if out_dir is None) '''
 
-    if args.output is None:
+    if config.output is None:
         out_dir = '.'
     else:
-        out_dir = args.output
-
-    if dwarf_assembly_args is None:
-        dwarf_assembly_args = []
+        out_dir = config.output
 
     print("> {}...".format(os.path.basename(obj_path)))
 
@@ -63,43 +99,41 @@ def gen_eh_elf(obj_path, args, dwarf_assembly_args=None):
     out_so_path = os.path.join(out_dir, (out_base_name + '.so'))
     pc_list_dir = os.path.join(out_dir, 'pc_list')
 
-    if is_newer(out_so_path, obj_path) and not args.force:
+    if is_newer(out_so_path, obj_path) and not config.force:
         return  # The object is recent enough, no need to recreate it
 
     with tempfile.TemporaryDirectory() as compile_dir:
         # Generate PC list
-        if args.use_pc_list:
+        pc_list_path = None
+        if config.use_pc_list:
             pc_list_path = \
                 os.path.join(pc_list_dir, out_base_name + '.pc_list')
             os.makedirs(pc_list_dir, exist_ok=True)
             print('\tGenerating PC list…')
             generate_pc_list(obj_path, pc_list_path)
-            dwarf_assembly_args += ['--pc-list', pc_list_path]
 
         # Generate the C source file
         print("\tGenerating C…")
         c_path = os.path.join(compile_dir, (out_base_name + '.c'))
-        gen_dw_asm_c(obj_path, c_path, dwarf_assembly_args)
+        gen_dw_asm_c(obj_path, c_path, config, pc_list_path)
 
         # Compile it into a .o
         print("\tCompiling into .o…")
         o_path = os.path.join(compile_dir, (out_base_name + '.o'))
-        opt_level = args.c_opt_level
-        if opt_level is None:
-            opt_level = '-O3'
-        if args.remote:
+        if config.remote:
             remote_out = do_remote(
-                args.remote,
+                config.remote,
                 [C_BIN,
                  '-o', out_base_name + '.o',
                  '-c', out_base_name + '.c',
-                 opt_level, '-fPIC'],
+                 config.opt_level(), '-fPIC'],
                 send_files=[c_path],
                 retr_files=[(out_base_name + '.o', o_path)])
             call_rc = 1 if remote_out is None else 0
         else:
             call_rc = subprocess.call(
-                [C_BIN, '-o', o_path, '-c', c_path, opt_level, '-fPIC'])
+                [C_BIN, '-o', o_path, '-c', c_path,
+                 config.opt_level(), '-fPIC'])
         if call_rc != 0:
             raise Exception("Failed to compile to a .o file")
 
@@ -111,15 +145,38 @@ def gen_eh_elf(obj_path, args, dwarf_assembly_args=None):
             raise Exception("Failed to compile to a .so file")
 
 
-def gen_all_eh_elf(obj_path, args, dwarf_assembly_args=None):
+def gen_all_eh_elf(obj_path, config):
     ''' Call `gen_eh_elf` on obj_path and all its dependencies '''
-    if dwarf_assembly_args is None:
-        dwarf_assembly_args = []
-
     deps = elf_so_deps(obj_path)
     deps.append(obj_path)
     for dep in deps:
-        gen_eh_elf(dep, args, dwarf_assembly_args)
+        gen_eh_elf(dep, config)
+
+
+def gen_eh_elfs(obj_path,
+                out_dir,
+                global_switch=True,
+                deps=True,
+                remote=None):
+    ''' Call gen{_all,}_eh_elf with args setup accordingly with the given
+    options '''
+
+    switch_gen_policy = (
+        SwitchGenPolicy.GLOBAL_SWITCH if global_switch
+        else SwitchGenPolicy.SWITCH_PER_FUNC
+    )
+
+    config = Config(
+        out_dir,
+        [obj_path],
+        sw_gen_policy=switch_gen_policy,
+        remote=remote,
+    )
+
+    if deps:
+        return gen_all_eh_elf([obj_path], config)
+    else:
+        return gen_eh_elf([obj_path], config)
 
 
 def process_args():
@@ -150,35 +207,40 @@ def process_args():
                               "ELF."))
     # c_opt_level
     opt_level_grp = parser.add_mutually_exclusive_group()
-    opt_level_grp.add_argument('-O0', action='store_const', const='-O0',
+    opt_level_grp.add_argument('-O0', action='store_const', const='0',
                                dest='c_opt_level',
                                help=("Compile C file with this optimization "
                                      "level."))
-    opt_level_grp.add_argument('-O1', action='store_const', const='-O1',
+    opt_level_grp.add_argument('-O1', action='store_const', const='1',
                                dest='c_opt_level',
                                help=("Compile C file with this optimization "
                                      "level."))
-    opt_level_grp.add_argument('-O2', action='store_const', const='-O2',
+    opt_level_grp.add_argument('-O2', action='store_const', const='2',
                                dest='c_opt_level',
                                help=("Compile C file with this optimization "
                                      "level."))
-    opt_level_grp.add_argument('-O3', action='store_const', const='-O3',
+    opt_level_grp.add_argument('-O3', action='store_const', const='3',
                                dest='c_opt_level',
                                help=("Compile C file with this optimization "
                                      "level."))
-    opt_level_grp.add_argument('-Os', action='store_const', const='-Os',
+    opt_level_grp.add_argument('-Os', action='store_const', const='s',
                                dest='c_opt_level',
                                help=("Compile C file with this optimization "
                                      "level."))
+    opt_level_grp.set_defaults(c_opt_level='3')
 
-    switch_generation_policy = \
+    switch_gen_policy = \
         parser.add_mutually_exclusive_group(required=True)
-    switch_generation_policy.add_argument('--switch-per-func',
-                                          action='store_const', const='',
-                                          help=("Passed to dwarf-assembly."))
-    switch_generation_policy.add_argument('--global-switch',
-                                          action='store_const', const='',
-                                          help=("Passed to dwarf-assembly."))
+    switch_gen_policy.add_argument('--switch-per-func',
+                                   dest='sw_gen_policy',
+                                   action='store_const',
+                                   const=SwitchGenPolicy.SWITCH_PER_FUNC,
+                                   help=("Passed to dwarf-assembly."))
+    switch_gen_policy.add_argument('--global-switch',
+                                   dest='sw_gen_policy',
+                                   action='store_const',
+                                   const=SwitchGenPolicy.GLOBAL_SWITCH,
+                                   help=("Passed to dwarf-assembly."))
     parser.add_argument('object', nargs='+',
                         help="The ELF object(s) to process")
     return parser.parse_args()
@@ -186,20 +248,18 @@ def process_args():
 
 def main():
     args = process_args()
-
-    DW_ASSEMBLY_OPTS = {
-        'switch_per_func': '--switch-per-func',
-        'global_switch': '--global-switch',
-    }
-
-    dwarf_assembly_opts = []
-    args_dict = vars(args)
-    for opt in DW_ASSEMBLY_OPTS:
-        if opt in args and args_dict[opt] is not None:
-            dwarf_assembly_opts.append(DW_ASSEMBLY_OPTS[opt])
+    config = Config(
+        args.output,
+        args.object,
+        args.sw_gen_policy,
+        args.force,
+        args.use_pc_list,
+        args.c_opt_level,
+        args.remote,
+    )
 
     for obj in args.object:
-        args.gen_func(obj, args, dwarf_assembly_opts)
+        args.gen_func(obj, config)
 
 
 if __name__ == "__main__":
