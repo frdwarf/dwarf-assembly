@@ -42,6 +42,7 @@ class Config:
                  use_pc_list=False,
                  c_opt_level='3',
                  enable_deref_arg=False,
+                 cc_debug=False,
                  remote=None):
         self.output = output
         self.objects = objects
@@ -50,6 +51,7 @@ class Config:
         self.use_pc_list = use_pc_list
         self.c_opt_level = c_opt_level
         self.enable_deref_arg = enable_deref_arg
+        self.cc_debug = cc_debug
         self.remote = remote
 
     def dwarf_assembly_args(self):
@@ -58,6 +60,14 @@ class Config:
         out.append(self.sw_gen_policy.value)
         if self.enable_deref_arg:
             out.append('--enable-deref-arg')
+        return out
+
+    def cc_opts(self):
+        ''' Options to pass to the C compiler '''
+        out = ['-fPIC']
+        if self.cc_debug:
+            out.append('-g')
+        out.append(self.opt_level())
         return out
 
     def opt_level(self):
@@ -129,10 +139,11 @@ def gen_eh_elf(obj_path, config):
         if config.remote:
             remote_out = do_remote(
                 config.remote,
-                [C_BIN,
-                 '-o', out_base_name + '.o',
-                 '-c', out_base_name + '.c',
-                 config.opt_level(), '-fPIC'],
+                [
+                    C_BIN,
+                    '-o', out_base_name + '.o',
+                    '-c', out_base_name + '.c'
+                ] + config.cc_opts(),
                 send_files=[c_path],
                 retr_files=[(out_base_name + '.o', o_path)])
             call_rc = 1 if remote_out is None else 0
@@ -216,6 +227,9 @@ def process_args():
                               "dwarf-assembly, enabling an extra `deref` "
                               "argument for each lookup function, allowing "
                               "to work on remote address spaces."))
+    parser.add_argument("-g", "--cc-debug", action='store_true',
+                        help=("Compile the source file with -g for easy "
+                              "debugging"))
     # c_opt_level
     opt_level_grp = parser.add_mutually_exclusive_group()
     opt_level_grp.add_argument('-O0', action='store_const', const='0',
@@ -267,6 +281,7 @@ def main():
         args.use_pc_list,
         args.c_opt_level,
         args.enable_deref_arg,
+        args.cc_debug,
         args.remote,
     )
 
