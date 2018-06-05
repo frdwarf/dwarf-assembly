@@ -77,8 +77,9 @@ MainOptions options_parse(int argc, char** argv) {
     if(print_helptext) {
         cerr << "Usage: "
              << argv[0]
-             << " [--switch-per-func | --global-switch] "
-             << "[--pc-list PC_LIST_FILE] elf_path"
+             << " [--switch-per-func | --global-switch]"
+             << " [--enable-deref-arg]"
+             << " [--pc-list PC_LIST_FILE] elf_path"
              << endl;
     }
     if(exit_status >= 0)
