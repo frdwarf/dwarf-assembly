@@ -99,6 +99,26 @@ def gen_dw_asm_c(obj_path, out_path, config, pc_list_path=None):
                  exn.returncode))
 
 
+def resolve_symlink_chain(objpath):
+    ''' Resolves a symlink chain. This returns a pair `(new_obj, chain)`,
+    `new_obj` being the canonical path for `objpath`, and `chain` being a list
+    representing the path followed, eg. `[(objpath, a), (a, b), (b, new_obj)]`.
+    The goal of this function is to allow reproducing symlink architectures at
+    the eh_elf level. '''
+
+    chain = []
+    out_path = objpath
+
+    while os.path.islink(out_path):
+        new_path = os.readlink(out_path)
+        if not os.path.isabs(new_path):
+            new_path = os.path.join(os.path.dirname(out_path), new_path)
+        chain.append((out_path, new_path))
+        out_path = new_path
+
+    return (out_path, chain)
+
+
 def gen_eh_elf(obj_path, config):
     ''' Generate the eh_elf corresponding to `obj_path`, saving it as
     `out_dir/$(basename obj_path).eh_elf.so` (or in the current working
@@ -109,10 +129,25 @@ def gen_eh_elf(obj_path, config):
     else:
         out_dir = config.output
 
+    def to_eh_elf_path(so_path, base=False):
+        ''' Transform a library path into its eh_elf counterpart '''
+        base_path = os.path.basename(so_path) + '.eh_elf'
+        if base:
+            return base_path
+        return os.path.join(out_dir, base_path + '.so')
+
+    obj_path, link_chain = resolve_symlink_chain(obj_path)
+
     print("> {}...".format(os.path.basename(obj_path)))
 
-    out_base_name = os.path.basename(obj_path) + '.eh_elf'
-    out_so_path = os.path.join(out_dir, (out_base_name + '.so'))
+    link_chain = map(
+        lambda elt:
+            (to_eh_elf_path(elt[0]),
+             os.path.basename(to_eh_elf_path(elt[1]))),
+        link_chain)
+
+    out_base_name = to_eh_elf_path(obj_path, base=True)
+    out_so_path = to_eh_elf_path(obj_path, base=False)
     pc_list_dir = os.path.join(out_dir, 'pc_list')
 
     if is_newer(out_so_path, obj_path) and not config.force:
@@ -160,6 +195,10 @@ def gen_eh_elf(obj_path, config):
             [C_BIN, '-o', out_so_path, '-shared', o_path])
         if call_rc != 0:
             raise Exception("Failed to compile to a .so file")
+
+    # Re-create symlinks
+    for elt in link_chain:
+        os.symlink(elt[1], elt[0])
 
 
 def gen_all_eh_elf(obj_path, config):
