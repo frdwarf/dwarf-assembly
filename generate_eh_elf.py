@@ -198,6 +198,12 @@ def gen_eh_elf(obj_path, config):
 
     # Re-create symlinks
     for elt in link_chain:
+        if os.path.exists(elt[0]):
+            if not os.path.islink(elt[0]):
+                raise Exception(
+                    "{}: file already exists and is not a symlink.".format(
+                        elt[0]))
+            os.remove(elt[0])
         os.symlink(elt[1], elt[0])
 
 
