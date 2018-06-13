@@ -4,8 +4,12 @@
 
 #include <algorithm>
 #include <limits>
+#include <exception>
+#include <sstream>
 
 using namespace std;
+
+class UnhandledRegister: public std::exception {};
 
 static const char* PRELUDE =
 "#include <assert.h>\n"
@@ -22,6 +26,16 @@ CodeGenerator::CodeGenerator(
         pc_list = make_unique<PcListReader>(settings::pc_list);
         pc_list->read();
     }
+}
+
+static std::string undefined_register() {
+    static std::string val = "";
+    if(val.empty()) {
+        std::ostringstream oss;
+        oss << std::numeric_limits<uintptr_t>::max() << "ull";
+        val = oss.str();
+    }
+    return val;
 }
 
 void CodeGenerator::generate() {
@@ -77,7 +91,11 @@ void CodeGenerator::gen_unwind_func_header(const std::string& name) {
 }
 
 void CodeGenerator::gen_unwind_func_footer() {
-    os << "\t\tdefault: assert(0);\n"
+    os << "\t\tdefault:\n"
+       << "\t\t\tout_ctx.rsp = " << undefined_register() << ";\n"
+       << "\t\t\tout_ctx.rbp = " << undefined_register() << ";\n"
+       << "\t\t\tout_ctx.rip = " << undefined_register() << ";\n"
+       << "\t\t\treturn out_ctx;"
        << "\t}\n"
        << "}" << endl;
 }
@@ -109,17 +127,24 @@ void CodeGenerator::gen_of_row(
 {
     gen_case(row.ip, row_end);
 
-    os << "\t\t\t" << "out_ctx.rsp = ";
-    gen_of_reg(row.cfa);
-    os << ';' << endl;
+    try {
+        os << "\t\t\t" << "out_ctx.rsp = ";
+        gen_of_reg(row.cfa);
+        os << ';' << endl;
 
-    os << "\t\t\t" << "out_ctx.rbp = ";
-    gen_of_reg(row.rbp);
-    os << ';' << endl;
+        os << "\t\t\t" << "out_ctx.rbp = ";
+        gen_of_reg(row.rbp);
+        os << ';' << endl;
 
-    os << "\t\t\t" << "out_ctx.rip = ";
-    gen_of_reg(row.ra);
-    os << ';' << endl;
+        os << "\t\t\t" << "out_ctx.rip = ";
+        gen_of_reg(row.ra);
+        os << ';' << endl;
+    } catch(const UnhandledRegister& exn) {
+        os << ";\n"
+           << "\t\t\tout_ctx.rip = " << undefined_register() << ";\n"
+           << "\t\t\tout_ctx.rsp = " << undefined_register() << ";\n"
+           << "\t\t\tout_ctx.rbp = " << undefined_register() << ";\n";
+    }
 
     os << "\t\t\treturn " << "out_ctx" << ";" << endl;
 }
@@ -166,7 +191,7 @@ static const char* ctx_of_dw_name(SimpleDwarf::MachineRegister reg) {
 void CodeGenerator::gen_of_reg(const SimpleDwarf::DwRegister& reg) {
     switch(reg.type) {
         case SimpleDwarf::DwRegister::REG_UNDEFINED:
-            os << std::numeric_limits<uintptr_t>::max() << "ull";
+            os << undefined_register();
             break;
         case SimpleDwarf::DwRegister::REG_REGISTER:
             os << ctx_of_dw_name(reg.reg)
@@ -186,7 +211,8 @@ void CodeGenerator::gen_of_reg(const SimpleDwarf::DwRegister& reg) {
             break;
         }
         case SimpleDwarf::DwRegister::REG_NOT_IMPLEMENTED:
-            os << "0; assert(0)";
+            os << "0";
+            throw UnhandledRegister();
             break;
     }
 }
