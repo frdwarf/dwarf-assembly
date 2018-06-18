@@ -9,7 +9,7 @@ import os
 import subprocess
 from collections import namedtuple
 
-from shared_python import elf_so_deps
+from shared_python import elf_so_deps, readlink_rec
 
 
 ''' An ELF object, including the path to the ELF itself, and the path to its
@@ -92,6 +92,8 @@ def objects_list(args):
     else:
         objects = args.object
 
+    objects = list(map(readlink_rec, objects))
+
     for obj in objects:
         out.append(ElfObject(obj, matching_eh_elf(args.eh_elfs, obj)))
 
@@ -116,6 +118,15 @@ def process_args():
     parser.add_argument('object', nargs='+',
                         help="The ELF object(s) to process")
     return parser.parse_args()
+
+
+def get_or_default(obj, field, default=None):
+    ''' Access a field of a subscriptable, returning a default if there is no
+    such field '''
+
+    if field not in obj:
+        return default
+    return obj[field]
 
 
 def main():
@@ -165,9 +176,13 @@ def main():
         elf_sections = get_elf_sections(obj.elf)
         eh_elf_sections = get_elf_sections(obj.eh_elf)
 
-        eh_frame_size = elf_sections['.eh_frame']['size']
-        eh_elf_text_size = eh_elf_sections['.text']['size']
-        eh_elf_size = eh_elf_text_size + eh_elf_sections['.rodata']['size']
+        eh_frame_size = get_or_default(
+            elf_sections, '.eh_frame', {'size': 0})['size']
+        eh_elf_text_size = get_or_default(
+            eh_elf_sections, '.text', {'size': 0})['size']
+        eh_elf_size = eh_elf_text_size + \
+            get_or_default(
+                eh_elf_sections, '.rodata', {'size': 0})['size']
 
         total_eh_frame_size += eh_frame_size
         total_eh_elf_text_size += eh_elf_text_size

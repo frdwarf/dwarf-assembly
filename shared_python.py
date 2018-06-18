@@ -6,6 +6,16 @@ import os
 from collections import namedtuple
 
 
+def readlink_rec(path):
+    ''' Returns the canonical path of `path`, resolving multiple layers of
+    symlinks '''
+    while os.path.islink(path):
+        path = os.path.join(
+            os.path.dirname(path),
+            os.readlink(path))
+    return path
+
+
 def is_newer(file1, file2):
     ''' Returns True iff file1 is newer than file2 '''
     try:
