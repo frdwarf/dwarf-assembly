@@ -62,7 +62,7 @@ SimpleDwarf::Fde DwarfReader::read_fde(const core::Fde& fde) const {
                             break;
                     }
                 }
-                catch(UnsupportedRegister) {} // Just ignore it.
+                catch(const UnsupportedRegister&) {} // Just ignore it.
             }
         }
 

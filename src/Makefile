@@ -9,6 +9,8 @@ OBJS=\
 	SimpleDwarf.o \
 	CodeGenerator.o \
 	PcListReader.o \
+	SimpleDwarfFilter.o \
+	PcHoleFiller.o \
 	settings.o \
 	main.o
 

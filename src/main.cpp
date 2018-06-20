@@ -7,6 +7,7 @@
 #include "SimpleDwarf.hpp"
 #include "DwarfReader.hpp"
 #include "CodeGenerator.hpp"
+#include "PcHoleFiller.hpp"
 
 #include "settings.hpp"
 
@@ -92,8 +93,11 @@ int main(int argc, char** argv) {
     MainOptions opts = options_parse(argc, argv);
     SimpleDwarf parsed_dwarf = DwarfReader(opts.elf_path).read();
 
+    SimpleDwarf filtered_dwarf =
+        PcHoleFiller()(parsed_dwarf);
+
     CodeGenerator code_gen(
-            parsed_dwarf,
+            filtered_dwarf,
             cout,
             [](const SimpleDwarf::Fde& fde) {
                 std::ostringstream ss;

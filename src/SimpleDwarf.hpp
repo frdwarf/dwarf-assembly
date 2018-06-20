@@ -51,8 +51,8 @@ struct SimpleDwarf {
 
     struct Fde {
         uintptr_t fde_offset; ///< This FDE's offset in the original DWARF
-        uintptr_t beg_ip, ///< This FDE's start instruction pointer
-                  end_ip; ///< This FDE's end instruction pointer
+        uintptr_t beg_ip, ///< This FDE's start instruction pointer incl.
+                  end_ip; ///< This FDE's end instruction pointer excl.
         std::vector<DwRow> rows; ///< Dwarf rows for this FDE
 
         friend std::ostream& operator<<(std::ostream &, const Fde&);
