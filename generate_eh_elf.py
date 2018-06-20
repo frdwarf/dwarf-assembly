@@ -34,8 +34,14 @@ class SwitchGenPolicy(Enum):
 class Config:
     ''' Holds the run's settings '''
 
+    default_aux = [
+        '~/.cache/eh_elfs',
+    ]
+
     def __init__(self,
                  output,
+                 aux,
+                 no_dft_aux,
                  objects,
                  sw_gen_policy=SwitchGenPolicy.GLOBAL_SWITCH,
                  force=False,
@@ -44,7 +50,11 @@ class Config:
                  enable_deref_arg=False,
                  cc_debug=False,
                  remote=None):
-        self.output = output
+        self.output = '.' if output is None else output
+        self.aux = (
+            aux
+            + ([] if no_dft_aux else self.default_aux)
+        )
         self.objects = objects
         self.sw_gen_policy = sw_gen_policy
         self.force = force
@@ -53,6 +63,10 @@ class Config:
         self.enable_deref_arg = enable_deref_arg
         self.cc_debug = cc_debug
         self.remote = remote
+
+    @staticmethod
+    def default_aux_str():
+        return ', '.join(Config.default_aux)
 
     def dwarf_assembly_args(self):
         ''' Arguments to `dwarf_assembly` '''
@@ -73,6 +87,10 @@ class Config:
     def opt_level(self):
         ''' The optimization level to pass to gcc '''
         return '-O{}'.format(self.c_opt_level)
+
+    def aux_dirs(self):
+        ''' Get the list of auxiliary directories '''
+        return self.aux
 
 
 def gen_dw_asm_c(obj_path, out_path, config, pc_list_path=None):
@@ -119,39 +137,55 @@ def resolve_symlink_chain(objpath):
     return (out_path, chain)
 
 
+def to_eh_elf_path(so_path, out_dir, base=False):
+    ''' Transform a library path into its eh_elf counterpart '''
+    base_path = os.path.basename(so_path) + '.eh_elf'
+    if base:
+        return base_path
+    return os.path.join(out_dir, base_path + '.so')
+
+
+def find_out_dir(obj_path, config):
+    ''' Find the directory in which the eh_elf corresponding to `obj_path` will
+    be outputted, among the output directory and the aux directories '''
+
+    for candidate in config.aux_dirs():
+        eh_elf_path = to_eh_elf_path(obj_path, candidate)
+        if os.path.exists(eh_elf_path):
+            return candidate
+
+    # No match among the aux dirs
+    return config.output
+
+
 def gen_eh_elf(obj_path, config):
     ''' Generate the eh_elf corresponding to `obj_path`, saving it as
     `out_dir/$(basename obj_path).eh_elf.so` (or in the current working
     directory if out_dir is None) '''
 
-    if config.output is None:
-        out_dir = '.'
-    else:
-        out_dir = config.output
-
-    def to_eh_elf_path(so_path, base=False):
-        ''' Transform a library path into its eh_elf counterpart '''
-        base_path = os.path.basename(so_path) + '.eh_elf'
-        if base:
-            return base_path
-        return os.path.join(out_dir, base_path + '.so')
-
+    out_dir = find_out_dir(obj_path, config)
     obj_path, link_chain = resolve_symlink_chain(obj_path)
 
     print("> {}...".format(os.path.basename(obj_path)))
 
     link_chain = map(
         lambda elt:
-            (to_eh_elf_path(elt[0]),
-             os.path.basename(to_eh_elf_path(elt[1]))),
+            (to_eh_elf_path(elt[0], out_dir),
+             os.path.basename(to_eh_elf_path(elt[1], out_dir))),
         link_chain)
 
-    out_base_name = to_eh_elf_path(obj_path, base=True)
-    out_so_path = to_eh_elf_path(obj_path, base=False)
+    out_base_name = to_eh_elf_path(obj_path, out_dir, base=True)
+    out_so_path = to_eh_elf_path(obj_path, out_dir, base=False)
     pc_list_dir = os.path.join(out_dir, 'pc_list')
 
     if is_newer(out_so_path, obj_path) and not config.force:
         return  # The object is recent enough, no need to recreate it
+
+    if os.path.exists(out_dir) and not os.path.isdir(out_dir):
+        raise Exception("The output path {} is not a directory.".format(
+            out_dir))
+    if not os.path.exists(out_dir):
+        os.makedirs(out_dir, exist_ok=True)
 
     with tempfile.TemporaryDirectory() as compile_dir:
         # Generate PC list
@@ -256,6 +290,18 @@ def process_args():
     parser.add_argument('-o', '--output', metavar="path",
                         help=("Save the generated objects at the given path "
                               "instead of the current working directory"))
+    parser.add_argument('-a', '--aux', action='append', default=[],
+                        help=("Alternative output directories. These "
+                              "directories are searched for existing matching "
+                              "eh_elfs, and if found, these files are updated "
+                              "instead of creating new files in the --output "
+                              "directory. By default, some aux directories "
+                              "are always considered, unless -A is passed: "
+                              "{}.").format(Config.default_aux_str()))
+    parser.add_argument('-A', '--no-dft-aux', action='store_true',
+                        help=("Do not use the default auxiliary output "
+                              "directories: {}.").format(
+                                  Config.default_aux_str()))
     parser.add_argument('--remote', metavar='ssh_args',
                         help=("Execute the heavyweight commands on the remote "
                               "machine, using `ssh ssh_args`."))
@@ -318,8 +364,11 @@ def process_args():
 
 def main():
     args = process_args()
+    print(args)
     config = Config(
         args.output,
+        args.aux,
+        args.no_dft_aux,
         args.object,
         args.sw_gen_policy,
         args.force,
