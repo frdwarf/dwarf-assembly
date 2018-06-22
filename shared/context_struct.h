@@ -1,6 +1,15 @@
 #include <stdint.h>
 
+typedef enum {
+    UNWF_RIP=0,
+    UNWF_RSP=1,
+    UNWF_RBP=2,
+
+    UNWF_ERROR=7
+} unwind_flags_t;
+
 typedef struct {
+    uint8_t flags;
     uintptr_t rip, rsp, rbp;
 } unwind_context_t;
 

@@ -48,6 +48,9 @@ class CodeGenerator {
 
         void gen_lookup(const std::vector<LookupEntry>& entries);
 
+        bool check_reg_defined(const SimpleDwarf::DwRegister& reg);
+        bool check_reg_valid(const SimpleDwarf::DwRegister& reg);
+
     private:
         SimpleDwarf dwarf;
         std::ostream& os;
