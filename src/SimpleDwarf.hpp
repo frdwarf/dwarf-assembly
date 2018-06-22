@@ -13,11 +13,13 @@
 struct SimpleDwarf {
     /** A machine register (eg. %rip) among the supported ones (x86_64 only
      * for now) */
-    static const std::size_t HANDLED_REGISTERS_COUNT = 4;
+    static const std::size_t HANDLED_REGISTERS_COUNT = 5;
     enum MachineRegister {
-        REG_RIP, REG_RSP, REG_RBP,
+        REG_RIP, REG_RSP, REG_RBP, REG_RBX,
         REG_RA ///< A bit of cheating: not a machine register
     };
+
+    static uint8_t to_shared_flag(MachineRegister mreg);
 
     struct DwRegister {
         /** Holds a single Dwarf register value */
@@ -44,6 +46,7 @@ struct SimpleDwarf {
         uintptr_t ip; ///< Instruction pointer
         DwRegister cfa; ///< Canonical Frame Address
         DwRegister rbp; ///< Base pointer register
+        DwRegister rbx; ///< RBX, sometimes used for unwinding
         DwRegister ra; ///< Return address
 
         friend std::ostream& operator<<(std::ostream &, const DwRow&);
