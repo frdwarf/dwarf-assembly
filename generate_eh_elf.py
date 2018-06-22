@@ -13,7 +13,13 @@ import tempfile
 import argparse
 from enum import Enum
 
-from shared_python import elf_so_deps, do_remote, is_newer
+from shared_python import \
+    elf_so_deps, \
+    do_remote, \
+    is_newer, \
+    to_eh_elf_path, \
+    find_eh_elf_dir, \
+    DEFAULT_AUX_DIRS
 from extract_pc import generate_pc_list
 
 
@@ -34,9 +40,7 @@ class SwitchGenPolicy(Enum):
 class Config:
     ''' Holds the run's settings '''
 
-    default_aux = [
-        '~/.cache/eh_elfs',
-    ]
+    default_aux = DEFAULT_AUX_DIRS
 
     def __init__(self,
                  output,
@@ -137,25 +141,11 @@ def resolve_symlink_chain(objpath):
     return (out_path, chain)
 
 
-def to_eh_elf_path(so_path, out_dir, base=False):
-    ''' Transform a library path into its eh_elf counterpart '''
-    base_path = os.path.basename(so_path) + '.eh_elf'
-    if base:
-        return base_path
-    return os.path.join(out_dir, base_path + '.so')
-
-
 def find_out_dir(obj_path, config):
     ''' Find the directory in which the eh_elf corresponding to `obj_path` will
     be outputted, among the output directory and the aux directories '''
 
-    for candidate in config.aux_dirs():
-        eh_elf_path = to_eh_elf_path(obj_path, candidate)
-        if os.path.exists(eh_elf_path):
-            return candidate
-
-    # No match among the aux dirs
-    return config.output
+    return find_eh_elf_dir(obj_path, config.aux_dirs(), config.output)
 
 
 def gen_eh_elf(obj_path, config):
@@ -169,9 +159,9 @@ def gen_eh_elf(obj_path, config):
     print("> {}...".format(os.path.basename(obj_path)))
 
     link_chain = map(
-        lambda elt:
-            (to_eh_elf_path(elt[0], out_dir),
-             os.path.basename(to_eh_elf_path(elt[1], out_dir))),
+        lambda elt: (
+            to_eh_elf_path(elt[0], out_dir),
+            os.path.basename(to_eh_elf_path(elt[1], out_dir))),
         link_chain)
 
     out_base_name = to_eh_elf_path(obj_path, out_dir, base=True)
@@ -264,6 +254,8 @@ def gen_eh_elfs(obj_path,
 
     config = Config(
         out_dir,
+        [],
+        False,
         [obj_path],
         sw_gen_policy=switch_gen_policy,
         remote=remote,
@@ -271,8 +263,7 @@ def gen_eh_elfs(obj_path,
 
     if deps:
         return gen_all_eh_elf([obj_path], config)
-    else:
-        return gen_eh_elf([obj_path], config)
+    return gen_eh_elf([obj_path], config)
 
 
 def process_args():
@@ -364,7 +355,6 @@ def process_args():
 
 def main():
     args = process_args()
-    print(args)
     config = Config(
         args.output,
         args.aux,

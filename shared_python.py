@@ -6,6 +6,32 @@ import os
 from collections import namedtuple
 
 
+DEFAULT_AUX_DIRS = [
+    '~/.cache/eh_elfs',
+]
+
+
+def to_eh_elf_path(so_path, out_dir, base=False):
+    ''' Transform a library path into its eh_elf counterpart '''
+    base_path = os.path.basename(so_path) + '.eh_elf'
+    if base:
+        return base_path
+    return os.path.join(out_dir, base_path + '.so')
+
+
+def find_eh_elf_dir(obj_path, aux_dirs, out_dir):
+    ''' Find the directory in which the eh_elf corresponding to `obj_path` will
+    be outputted, among the output directory and the aux directories '''
+
+    for candidate in aux_dirs:
+        eh_elf_path = to_eh_elf_path(obj_path, candidate)
+        if os.path.exists(eh_elf_path):
+            return candidate
+
+    # No match among the aux dirs
+    return out_dir
+
+
 def readlink_rec(path):
     ''' Returns the canonical path of `path`, resolving multiple layers of
     symlinks '''

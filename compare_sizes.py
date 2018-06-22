@@ -9,7 +9,7 @@ import os
 import subprocess
 from collections import namedtuple
 
-from shared_python import elf_so_deps, readlink_rec
+from shared_python import elf_so_deps, readlink_rec, DEFAULT_AUX_DIRS
 
 
 ''' An ELF object, including the path to the ELF itself, and the path to its
@@ -83,6 +83,11 @@ def objects_list(args):
 
     out = []
 
+    eh_elfs_dirs = (
+        args.eh_elfs
+        + ([] if args.no_dft_aux else DEFAULT_AUX_DIRS)
+    )
+
     if args.deps:
         objects = set(args.object)
         for obj in args.object:
@@ -95,7 +100,7 @@ def objects_list(args):
     objects = list(map(readlink_rec, objects))
 
     for obj in objects:
-        out.append(ElfObject(obj, matching_eh_elf(args.eh_elfs, obj)))
+        out.append(ElfObject(obj, matching_eh_elf(eh_elfs_dirs, obj)))
 
     return out
 
@@ -115,6 +120,8 @@ def process_args():
     parser.add_argument('--eh-elfs', required=True, action='append',
                         help=("Indicate the directory in which eh_elfs are "
                               "located"))
+    parser.add_argument('-A', '--no-dft-aux', action='store_true',
+                        help=("Do not use the default eh_elf locations"))
     parser.add_argument('object', nargs='+',
                         help="The ELF object(s) to process")
     return parser.parse_args()
