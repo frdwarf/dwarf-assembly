@@ -11,6 +11,7 @@ OBJS=\
 	PcListReader.o \
 	SimpleDwarfFilter.o \
 	PcHoleFiller.o \
+	ConseqEquivFilter.o \
 	settings.o \
 	main.o
 

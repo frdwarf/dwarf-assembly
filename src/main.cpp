@@ -8,6 +8,7 @@
 #include "DwarfReader.hpp"
 #include "CodeGenerator.hpp"
 #include "PcHoleFiller.hpp"
+#include "ConseqEquivFilter.hpp"
 
 #include "settings.hpp"
 
@@ -94,7 +95,9 @@ int main(int argc, char** argv) {
     SimpleDwarf parsed_dwarf = DwarfReader(opts.elf_path).read();
 
     SimpleDwarf filtered_dwarf =
-        PcHoleFiller()(parsed_dwarf);
+        PcHoleFiller()(
+        ConseqEquivFilter()(
+            parsed_dwarf));
 
     CodeGenerator code_gen(
             filtered_dwarf,
