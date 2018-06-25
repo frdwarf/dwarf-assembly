@@ -9,9 +9,19 @@
 #include <memory>
 
 struct SwitchStatement {
+    struct SwitchCaseContent {
+        std::string code;
+
+        bool operator==(const SwitchCaseContent& oth) const {
+            return code == oth.code;
+        }
+        bool operator<(const SwitchCaseContent& oth) const {
+            return code < oth.code;
+        }
+    };
     struct SwitchCase {
         uintptr_t low_bound, high_bound;
-        std::string code;
+        SwitchCaseContent content;
     };
 
     std::string switch_var;

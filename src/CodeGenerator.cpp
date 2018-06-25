@@ -86,7 +86,7 @@ void CodeGenerator::switch_append_fde(
 
         ostringstream case_oss;
         gen_of_row_content(fde.rows[fde_row_id], case_oss);
-        sw_case.code = case_oss.str();
+        sw_case.content.code = case_oss.str();
 
         sw.cases.push_back(sw_case);
     }

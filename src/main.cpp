@@ -9,6 +9,7 @@
 #include "CodeGenerator.hpp"
 #include "SwitchStatement.hpp"
 #include "NativeSwitchCompiler.hpp"
+#include "FactoredSwitchCompiler.hpp"
 #include "PcHoleFiller.hpp"
 #include "ConseqEquivFilter.hpp"
 
@@ -101,6 +102,7 @@ int main(int argc, char** argv) {
         ConseqEquivFilter()(
             parsed_dwarf));
 
+    FactoredSwitchCompiler* sw_compiler = new FactoredSwitchCompiler(1);
     CodeGenerator code_gen(
             filtered_dwarf,
             cout,
@@ -109,8 +111,22 @@ int main(int argc, char** argv) {
                 ss << "_fde_" << fde.beg_ip;
                 return ss.str();
             },
-            new NativeSwitchCompiler());
+            //new NativeSwitchCompiler()
+            sw_compiler
+            );
+
     code_gen.generate();
+
+#ifdef STATS
+    cerr << "Factoring stats:\nRefers: "
+         << sw_compiler->get_stats().refer_count
+         << "\nGenerated: "
+         << sw_compiler->get_stats().generated_count
+         << "\nAvoided: "
+         << sw_compiler->get_stats().refer_count
+            - sw_compiler->get_stats().generated_count
+         << "\n";
+#endif
 
     return 0;
 }

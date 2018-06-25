@@ -1,5 +1,7 @@
 /** Compiles a SwitchStatement to a native C switch */
 
+#pragma once
+
 #include "SwitchStatement.hpp"
 
 class NativeSwitchCompiler: public AbstractSwitchCompiler {

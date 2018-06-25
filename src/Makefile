@@ -1,6 +1,7 @@
 CXX=g++
 CXXLOCS?=-L. -I.
-CXXFLAGS=$(CXXLOCS) -Wall -Wextra -std=c++14 -O2 -g
+CXXFL?=
+CXXFLAGS=$(CXXLOCS) -Wall -Wextra -std=c++14 -O2 -g $(CXXFL)
 CXXLIBS=-lelf -ldwarf -ldwarfpp -lsrk31c++ -lc++fileno
 
 TARGET=dwarf-assembly
@@ -14,6 +15,7 @@ OBJS=\
 	ConseqEquivFilter.o \
 	SwitchStatement.o \
 	NativeSwitchCompiler.o \
+	FactoredSwitchCompiler.o \
 	settings.o \
 	main.o
 

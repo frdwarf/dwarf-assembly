@@ -16,7 +16,7 @@ void NativeSwitchCompiler::to_stream(ostream& os, const SwitchStatement& sw) {
            << hex << cur_case.low_bound << " ... 0x" << cur_case.high_bound
            << dec << ":\n";
         indent_count++;
-        os << indent_str(cur_case.code);
+        os << indent_str(cur_case.content.code);
         indent_count--;
     }
 
