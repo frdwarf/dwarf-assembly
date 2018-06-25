@@ -21,38 +21,16 @@ struct SwitchStatement {
 
 class AbstractSwitchCompiler {
     public:
-        AbstractSwitchCompiler(const SwitchStatement& sw,
-                int indent=0);
-        void operator()(std::ostream& os);
-        std::string operator()();
+        AbstractSwitchCompiler(int indent=0);
+        void operator()(std::ostream& os, const SwitchStatement& sw);
+        std::string operator()(const SwitchStatement& sw);
 
     protected:
-        virtual void to_stream(std::ostream& os) = 0;
+        virtual void to_stream(
+                std::ostream& os, const SwitchStatement& sw) = 0;
         std::string indent_str(const std::string& str) ;
         std::string indent() const;
         std::string endcl() const;
 
-
-        SwitchStatement sw;
         int indent_count;
-};
-
-class AbstractSwitchCompilerFactory {
-    public:
-        AbstractSwitchCompilerFactory();
-        virtual std::shared_ptr<AbstractSwitchCompiler> operator()(
-                const SwitchStatement& sw,
-                int indent=0) = 0;
-};
-
-template<class Compiler>
-class SwitchCompilerFactory : public AbstractSwitchCompilerFactory {
-    public:
-        virtual std::shared_ptr<AbstractSwitchCompiler> operator()(
-                const SwitchStatement& sw,
-                int indent=0)
-        {
-            return std::shared_ptr<AbstractSwitchCompiler>(
-                    new Compiler(sw, indent));
-        }
 };

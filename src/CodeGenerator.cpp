@@ -43,9 +43,9 @@ CodeGenerator::CodeGenerator(
         const SimpleDwarf& dwarf,
         std::ostream& os,
         NamingScheme naming_scheme,
-        AbstractSwitchCompilerFactory* factory) :
+        AbstractSwitchCompiler* sw_compiler) :
     dwarf(dwarf), os(os), pc_list(nullptr),
-    naming_scheme(naming_scheme), switch_factory(factory)
+    naming_scheme(naming_scheme), switch_compiler(sw_compiler)
 {
     if(!settings::pc_list.empty()) {
         pc_list = make_unique<PcListReader>(settings::pc_list);
@@ -122,8 +122,7 @@ void CodeGenerator::gen_of_dwarf() {
             SwitchStatement sw_stmt = gen_fresh_switch();
             for(const auto& fde: dwarf.fde_list)
                 switch_append_fde(sw_stmt, fde);
-            auto sw_compiler = (*switch_factory)(sw_stmt);
-            (*sw_compiler)(os);
+            (*switch_compiler)(os, sw_stmt);
             gen_unwind_func_footer();
             break;
         }
@@ -150,8 +149,7 @@ void CodeGenerator::gen_function_of_fde(const SimpleDwarf::Fde& fde) {
 
     SwitchStatement sw_stmt = gen_fresh_switch();
     switch_append_fde(sw_stmt, fde);
-    auto sw_compiler = (*switch_factory)(sw_stmt);
-    (*sw_compiler)(os);
+    (*switch_compiler)(os, sw_stmt);
 
     gen_unwind_func_footer();
 }

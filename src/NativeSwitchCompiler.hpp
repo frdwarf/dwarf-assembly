@@ -4,7 +4,7 @@
 
 class NativeSwitchCompiler: public AbstractSwitchCompiler {
     public:
-        NativeSwitchCompiler(const SwitchStatement& sw, int indent=0);
+        NativeSwitchCompiler(int indent=0);
     private:
-        virtual void to_stream(std::ostream& os);
+        virtual void to_stream(std::ostream& os, const SwitchStatement& sw);
 };

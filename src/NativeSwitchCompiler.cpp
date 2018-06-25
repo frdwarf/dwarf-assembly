@@ -3,11 +3,11 @@
 using namespace std;
 
 NativeSwitchCompiler::NativeSwitchCompiler(
-        const SwitchStatement& sw, int indent):
-    AbstractSwitchCompiler(sw, indent)
+        int indent):
+    AbstractSwitchCompiler(indent)
 {}
 
-void NativeSwitchCompiler::to_stream(ostream& os) {
+void NativeSwitchCompiler::to_stream(ostream& os, const SwitchStatement& sw) {
     os << indent() << "switch(" << sw.switch_var << ") {\n";
     indent_count++;
 

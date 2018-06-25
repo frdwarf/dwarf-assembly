@@ -25,7 +25,7 @@ class CodeGenerator {
          * given std::ostream object (eg. cout). */
         CodeGenerator(const SimpleDwarf& dwarf, std::ostream& os,
                 NamingScheme naming_scheme,
-                AbstractSwitchCompilerFactory* factory);
+                AbstractSwitchCompiler* sw_compiler);
 
         /// Actually generate the code on the given stream
         void generate();
@@ -64,5 +64,5 @@ class CodeGenerator {
 
         NamingScheme naming_scheme;
 
-        std::unique_ptr<AbstractSwitchCompilerFactory> switch_factory;
+        std::unique_ptr<AbstractSwitchCompiler> switch_compiler;
 };

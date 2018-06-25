@@ -109,7 +109,7 @@ int main(int argc, char** argv) {
                 ss << "_fde_" << fde.beg_ip;
                 return ss.str();
             },
-            new SwitchCompilerFactory<NativeSwitchCompiler>());
+            new NativeSwitchCompiler());
     code_gen.generate();
 
     return 0;

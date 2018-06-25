@@ -5,19 +5,20 @@
 using namespace std;
 
 AbstractSwitchCompiler::AbstractSwitchCompiler(
-        const SwitchStatement& sw,
         int indent)
-    : sw(sw), indent_count(indent)
+    : indent_count(indent)
 {
 }
 
-void AbstractSwitchCompiler::operator()(ostream& os) {
-    to_stream(os);
+void AbstractSwitchCompiler::operator()(
+        ostream& os, const SwitchStatement& sw)
+{
+    to_stream(os, sw);
 }
 
-string AbstractSwitchCompiler::operator()() {
+string AbstractSwitchCompiler::operator()(const SwitchStatement& sw) {
     ostringstream os;
-    (*this)(os);
+    (*this)(os, sw);
     return os.str();
 }
 
@@ -31,7 +32,7 @@ std::string AbstractSwitchCompiler::indent_str(const std::string& str) {
             << str.substr(last_find + 1, find_pos - last_find); // includes \n
         last_find = find_pos;
     }
-    if(last_find + 1 < (int)str.size()) {
+    if(last_find + 1 < (ssize_t)str.size()) {
         out << indent()
             << str.substr(last_find + 1)
             << '\n';
@@ -45,5 +46,3 @@ std::string AbstractSwitchCompiler::indent() const {
 std::string AbstractSwitchCompiler::endcl() const {
     return string("\n") + indent();
 }
-
-AbstractSwitchCompilerFactory::AbstractSwitchCompilerFactory() {}
