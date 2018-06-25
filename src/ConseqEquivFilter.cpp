@@ -20,6 +20,7 @@ static bool equiv_row(
     return r1.ip == r2.ip
         && equiv_reg(r1.cfa, r2.cfa)
         && equiv_reg(r1.rbp, r2.rbp)
+        && equiv_reg(r1.rbx, r2.rbx)
         && equiv_reg(r1.ra, r2.ra);
 }
 

@@ -1,4 +1,15 @@
 #include "SimpleDwarf.hpp"
+#include "../shared/context_struct.h"
+
+uint8_t SimpleDwarf::to_shared_flag(SimpleDwarf::MachineRegister mreg) {
+    switch(mreg) {
+        case REG_RIP: return (1 << UNWF_RIP);
+        case REG_RSP: return (1 << UNWF_RSP);
+        case REG_RBP: return (1 << UNWF_RBP);
+        case REG_RBX: return (1 << UNWF_RBX);
+        default:      return 0;
+    }
+}
 
 static std::ostream& operator<<(
         std::ostream& out,
@@ -13,6 +24,9 @@ static std::ostream& operator<<(
             break;
         case SimpleDwarf::REG_RBP:
             out << "rbp";
+            break;
+        case SimpleDwarf::REG_RBX:
+            out << "rbx";
             break;
         case SimpleDwarf::REG_RA:
             out << "RA";
@@ -49,6 +63,7 @@ std::ostream& operator<<(std::ostream& out, const SimpleDwarf::DwRow& row) {
     out << std::hex << row.ip << std::dec
         << '\t' << row.cfa
         << '\t' << row.rbp
+        << '\t' << row.rbx
         << '\t' << row.ra;
     out << std::endl;
     return out;

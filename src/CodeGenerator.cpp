@@ -19,9 +19,10 @@ static const char* PRELUDE =
 
 struct UnwFlags {
     UnwFlags():
-        error(false), rip(false), rsp(false), rbp(false) {}
+        error(false), rip(false), rsp(false), rbp(false), rbx(false) {}
 
-    bool error, rip, rsp, rbp;
+
+    bool error, rip, rsp, rbp, rbx;
 
     uint8_t to_uint8() const {
         uint8_t out = 0;
@@ -31,6 +32,8 @@ struct UnwFlags {
             out |= (1 << UNWF_RSP);
         if(rbp)
             out |= (1 << UNWF_RBP);
+        if(rbx)
+            out |= (1 << UNWF_RBX);
         if(error)
             out |= (1 << UNWF_ERROR);
 
@@ -193,6 +196,12 @@ void CodeGenerator::gen_of_row_content(
             stream << ';' << endl;
         }
 
+        if(check_reg_defined(row.rbx)) {
+            flags.rbx = true;
+            stream << "out_ctx.rbx = ";
+            gen_of_reg(row.rbx, stream);
+            stream << ';' << endl;
+        }
     } catch(const UnhandledRegister& exn) {
         // This should not happen, since we check_reg_*, but heh.
         flags.error = true;
@@ -213,6 +222,8 @@ static const char* ctx_of_dw_name(SimpleDwarf::MachineRegister reg) {
             return "ctx.rsp";
         case SimpleDwarf::REG_RBP:
             return "ctx.rbp";
+        case SimpleDwarf::REG_RBX:
+            return "ctx.rbx";
         case SimpleDwarf::REG_RA:
             throw CodeGenerator::NotImplementedCase();
     }

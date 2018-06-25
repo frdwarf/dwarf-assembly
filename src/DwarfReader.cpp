@@ -55,6 +55,9 @@ SimpleDwarf::Fde DwarfReader::read_fde(const core::Fde& fde) const {
                         case SimpleDwarf::REG_RBP:
                             cur_row.rbp = read_register(cell.second);
                             break;
+                        case SimpleDwarf::REG_RBX:
+                            cur_row.rbx = read_register(cell.second);
+                            break;
                         case SimpleDwarf::REG_RA:
                             cur_row.ra = read_register(cell.second);
                             break;
@@ -130,6 +133,8 @@ SimpleDwarf::MachineRegister DwarfReader::from_dwarfpp_reg(
             return SimpleDwarf::REG_RSP;
         case lib::DWARF_X86_64_RBP:
             return SimpleDwarf::REG_RBP;
+        case lib::DWARF_X86_64_RBX:
+            return SimpleDwarf::REG_RBX;
         default:
             throw UnsupportedRegister();
     }
