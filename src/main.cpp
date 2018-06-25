@@ -7,6 +7,8 @@
 #include "SimpleDwarf.hpp"
 #include "DwarfReader.hpp"
 #include "CodeGenerator.hpp"
+#include "SwitchStatement.hpp"
+#include "NativeSwitchCompiler.hpp"
 #include "PcHoleFiller.hpp"
 #include "ConseqEquivFilter.hpp"
 
@@ -106,7 +108,8 @@ int main(int argc, char** argv) {
                 std::ostringstream ss;
                 ss << "_fde_" << fde.beg_ip;
                 return ss.str();
-            });
+            },
+            new SwitchCompilerFactory<NativeSwitchCompiler>());
     code_gen.generate();
 
     return 0;

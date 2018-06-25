@@ -12,6 +12,8 @@ OBJS=\
 	SimpleDwarfFilter.o \
 	PcHoleFiller.o \
 	ConseqEquivFilter.o \
+	SwitchStatement.o \
+	NativeSwitchCompiler.o \
 	settings.o \
 	main.o
 
