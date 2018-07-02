@@ -1,0 +1,98 @@
+#!/bin/bash
+## Source this file.
+## Usage: apply [vanilla | vanilla-nocache | *eh_elf] [dbg | *release]
+
+# ==== DEFINE DEACTIVATE ====
+
+function deactivate {
+    if [ "$IS_EHELFSAVE_EVT" -eq 1 ] ; then
+        unset IS_EHELFSAVE_EVT
+
+        export CPATH="$CPATH_EHELFSAVE"
+        export LIBRARY_PATH="$LIBRARY_PATH_EHELFSAVE"
+        export LD_LIBRARY_PATH="$LD_LIBRARY_PATH_EHELFSAVE"
+        export PS1="$PS1_EHELFSAVE"
+
+        unset CPATH_EHELFSAVE
+        unset LIBRARY_PATH_EHELFSAVE
+        unset LD_LIBRARY_PATH_EHELFSAVE
+        unset PS1_EHELFSAVE
+    fi
+}
+
+# ==== INPUT ACQUISITION ====
+flavour="eh_elf"
+dbg="release"
+while [ "$#" -gt 0 ] ; do
+    case "$1" in
+        "vanilla" | "vanilla-nocache" | "eh_elf")
+            flavour="$1"
+            ;;
+        "dbg" | "release")
+            dbg="$1"
+            ;;
+        *)
+            >&2 echo "Unknown argument: $1"
+            exit 1
+            ;;
+    esac
+    shift
+done
+
+# ==== PREFIX ====
+export PERF_PREFIX="$HOME/local/perf-$flavour"
+
+LIBUNWIND_PREFIX="$HOME/local/libunwind"
+case "$flavour" in
+    "vanilla" | "vanilla-nocache" )
+        LIBUNWIND_PREFIX="${LIBUNWIND_PREFIX}-vanilla"
+        ;;
+    "eh_elf" )
+        LIBUNWIND_PREFIX="${LIBUNWIND_PREFIX}-eh_elf"
+        ;;
+    * )
+        >&2 echo "$flavour: unknown flavour"
+        exit 1
+        ;;
+esac
+case "$dbg" in
+    "dbg" )
+        LIBUNWIND_PREFIX="${LIBUNWIND_PREFIX}-dbg"
+        ;;
+    "release" )
+        LIBUNWIND_PREFIX="${LIBUNWIND_PREFIX}-release"
+        ;;
+    * )
+        >&2 echo "$dbg: unknown debug mode (release | dbg)"
+        exit 1
+        ;;
+esac
+
+export LIBUNWIND_PREFIX
+
+
+# ==== EXPORTING ENV VARS ====
+
+function colon_prepend {
+    if [ -z "$2" ]; then
+        echo "$1"
+    else
+        >&2 echo ">$2<"
+        echo "$1:$2"
+    fi
+}
+
+export IS_EHELFSAVE_EVT=1
+export CPATH_EHELFSAVE="$CPATH"
+export LIBRARY_PATH_EHELFSAVE="$LIBRARY_PATH"
+export LD_LIBRARY_PATH_EHELFSAVE="$LD_LIBRARY_PATH"
+export PS1_EHELFSAVE="$PS1"
+
+export CPATH="$(colon_prepend \
+    "$LIBUNWIND_PREFIX/include/:$PERF_PREFIX/include" "$CPATH")"
+export LIBRARY_PATH="$(colon_prepend \
+    "$LIBUNWIND_PREFIX/lib/:$PERF_PREFIX/lib" "$LIBRARY_PATH")"
+export LD_LIBRARY_PATH="$(colon_prepend \
+    "$LIBUNWIND_PREFIX/lib/:$PERF_PREFIX/lib" "$LD_LIBRARY_PATH")"
+
+export PS1="($flavour $dbg) $PS1"
