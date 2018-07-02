@@ -32,6 +32,10 @@ struct SimpleDwarf {
                              defined at some later IP in the same DIE) */
             REG_REGISTER, ///< Value of a machine register plus offset
             REG_CFA_OFFSET, ///< Value stored at some offset from CFA
+            REG_PLT_EXPR, /**< Value is the evaluation of the standard PLT
+                            expression, ie `((rip & 15) >= 11) >> 3 + rsp`
+                            This is hardcoded because it's the only expression
+                            found so far, thus worth implementing. */
             REG_NOT_IMPLEMENTED ///< This type of register is not supported
         };
 

@@ -1,5 +1,7 @@
 #include "DwarfReader.hpp"
 
+#include "plt_std_expr.hpp"
+
 #include <fstream>
 #include <fileno.hpp>
 #include <set>
@@ -107,6 +109,13 @@ SimpleDwarf::DwRegister DwarfReader::read_register(
                 output.type = SimpleDwarf::DwRegister::REG_UNDEFINED;
                 break;
 
+            case core::FrameSection::register_def::SAVED_AT_EXPR:
+                if(is_plt_expr(reg))
+                    output.type = SimpleDwarf::DwRegister::REG_PLT_EXPR;
+                else
+                    output.type = SimpleDwarf::DwRegister::REG_NOT_IMPLEMENTED;
+                break;
+
             default:
                 output.type = SimpleDwarf::DwRegister::REG_NOT_IMPLEMENTED;
                 break;
@@ -138,4 +147,27 @@ SimpleDwarf::MachineRegister DwarfReader::from_dwarfpp_reg(
         default:
             throw UnsupportedRegister();
     }
+}
+
+static bool compare_dw_expr(
+        const encap::loc_expr& e1,
+        const encap::loc_expr& e2)
+{
+    const std::vector<encap::expr_instr>& e1_vec =
+        static_cast<const vector<encap::expr_instr>&>(e1);
+    const std::vector<encap::expr_instr>& e2_vec =
+        static_cast<const vector<encap::expr_instr>&>(e2);
+
+    return e1_vec == e2_vec;
+}
+
+bool DwarfReader::is_plt_expr(
+        const core::FrameSection::register_def& reg) const
+{
+    if(reg.k != core::FrameSection::register_def::SAVED_AT_EXPR)
+        return false;
+    const encap::loc_expr& expr = reg.saved_at_expr_r();
+
+    bool res = compare_dw_expr(expr, REFERENCE_PLT_EXPR);
+    return res;
 }

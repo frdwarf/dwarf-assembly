@@ -34,6 +34,9 @@ class DwarfReader {
                 int ra_reg=-1
                 ) const;
 
+        bool is_plt_expr(
+                const dwarf::core::FrameSection::register_def& reg) const;
+
         class UnsupportedRegister: public std::exception {};
 
     private:
