@@ -2,24 +2,6 @@
 ## Source this file.
 ## Usage: apply [vanilla | vanilla-nocache | *eh_elf] [dbg | *release]
 
-# ==== DEFINE DEACTIVATE ====
-
-function deactivate {
-    if [ "$IS_EHELFSAVE_EVT" -eq 1 ] ; then
-        unset IS_EHELFSAVE_EVT
-
-        export CPATH="$CPATH_EHELFSAVE"
-        export LIBRARY_PATH="$LIBRARY_PATH_EHELFSAVE"
-        export LD_LIBRARY_PATH="$LD_LIBRARY_PATH_EHELFSAVE"
-        export PS1="$PS1_EHELFSAVE"
-
-        unset CPATH_EHELFSAVE
-        unset LIBRARY_PATH_EHELFSAVE
-        unset LD_LIBRARY_PATH_EHELFSAVE
-        unset PS1_EHELFSAVE
-    fi
-}
-
 # ==== INPUT ACQUISITION ====
 flavour="eh_elf"
 dbg="release"
@@ -38,6 +20,29 @@ while [ "$#" -gt 0 ] ; do
     esac
     shift
 done
+
+# ==== UNSET PREVIOUS ENVIRONMENT ====
+
+type -t deactivate
+[ -n "$(type -t deactivate)" ] && deactivate
+
+# ==== DEFINE DEACTIVATE ====
+
+function deactivate {
+    export CPATH="$CPATH_EHELFSAVE"
+    export LIBRARY_PATH="$LIBRARY_PATH_EHELFSAVE"
+    export LD_LIBRARY_PATH="$LD_LIBRARY_PATH_EHELFSAVE"
+    export PS1="$PS1_EHELFSAVE"
+    export PATH="$PATH_EHELFSAVE"
+
+    unset CPATH_EHELFSAVE
+    unset LIBRARY_PATH_EHELFSAVE
+    unset LD_LIBRARY_PATH_EHELFSAVE
+    unset PS1_EHELFSAVE
+    unset PATH_EHELFSAVE
+
+    unset deactivate
+}
 
 # ==== PREFIX ====
 export PERF_PREFIX="$HOME/local/perf-$flavour"
@@ -76,16 +81,23 @@ export LIBUNWIND_PREFIX
 function colon_prepend {
     if [ -z "$2" ]; then
         echo "$1"
+    elif [ -z "$1" ] ; then
+        echo "$2"
     else
-        >&2 echo ">$2<"
         echo "$1:$2"
     fi
 }
 
-export IS_EHELFSAVE_EVT=1
+function ifpath {
+    if [ -e "$1" ] ; then
+        echo "$1"
+    fi
+}
+
 export CPATH_EHELFSAVE="$CPATH"
 export LIBRARY_PATH_EHELFSAVE="$LIBRARY_PATH"
 export LD_LIBRARY_PATH_EHELFSAVE="$LD_LIBRARY_PATH"
+export PATH_EHELFSAVE="$PATH"
 export PS1_EHELFSAVE="$PS1"
 
 export CPATH="$(colon_prepend \
@@ -94,5 +106,13 @@ export LIBRARY_PATH="$(colon_prepend \
     "$LIBUNWIND_PREFIX/lib/:$PERF_PREFIX/lib" "$LIBRARY_PATH")"
 export LD_LIBRARY_PATH="$(colon_prepend \
     "$LIBUNWIND_PREFIX/lib/:$PERF_PREFIX/lib" "$LD_LIBRARY_PATH")"
+export PATH="$(colon_prepend \
+    "$(colon_prepend \
+        "$(ifpath "$LIBUNWIND_PREFIX/bin")" \
+        "$(ifpath "$PERF_PREFIX/bin")")" \
+    "$PATH")"
 
 export PS1="($flavour $dbg) $PS1"
+
+unset ifpath
+unset colon_prepend
