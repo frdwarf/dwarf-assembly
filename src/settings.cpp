@@ -4,4 +4,5 @@ namespace settings {
     SwitchGenerationPolicy switch_generation_policy = SGP_SwitchPerFunc;
     std::string pc_list = "";
     bool enable_deref_arg = false;
+    bool keep_holes = false;
 }

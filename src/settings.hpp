@@ -16,4 +16,6 @@ namespace settings {
     extern SwitchGenerationPolicy switch_generation_policy;
     extern std::string pc_list;
     extern bool enable_deref_arg;
+    extern bool keep_holes; /**< Keep holes between FDEs. Larger eh_elf files,
+                              but more accurate unwinding. */
 }

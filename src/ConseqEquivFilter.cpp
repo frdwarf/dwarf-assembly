@@ -2,7 +2,7 @@
 
 using namespace std;
 
-ConseqEquivFilter::ConseqEquivFilter() {}
+ConseqEquivFilter::ConseqEquivFilter(bool enable): SimpleDwarfFilter(enable) {}
 
 static bool equiv_reg(
         const SimpleDwarf::DwRegister& r1,

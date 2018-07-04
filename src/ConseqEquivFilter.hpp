@@ -9,7 +9,7 @@
 
 class ConseqEquivFilter: public SimpleDwarfFilter {
     public:
-        ConseqEquivFilter();
+        ConseqEquivFilter(bool enable=true);
 
     private:
         SimpleDwarf do_apply(const SimpleDwarf& dw) const;

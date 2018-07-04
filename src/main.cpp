@@ -11,6 +11,7 @@
 #include "NativeSwitchCompiler.hpp"
 #include "FactoredSwitchCompiler.hpp"
 #include "PcHoleFiller.hpp"
+#include "EmptyFdeDeleter.hpp"
 #include "ConseqEquivFilter.hpp"
 
 #include "settings.hpp"
@@ -65,6 +66,10 @@ MainOptions options_parse(int argc, char** argv) {
         else if(option == "--enable-deref-arg") {
             settings::enable_deref_arg = true;
         }
+
+        else if(option == "--keep-holes") {
+            settings::keep_holes = true;
+        }
     }
 
     if(!seen_switch_gen_policy) {
@@ -84,6 +89,7 @@ MainOptions options_parse(int argc, char** argv) {
              << argv[0]
              << " [--switch-per-func | --global-switch]"
              << " [--enable-deref-arg]"
+             << " [--keep-holes]"
              << " [--pc-list PC_LIST_FILE] elf_path"
              << endl;
     }
@@ -98,9 +104,10 @@ int main(int argc, char** argv) {
     SimpleDwarf parsed_dwarf = DwarfReader(opts.elf_path).read();
 
     SimpleDwarf filtered_dwarf =
-        PcHoleFiller()(
+        PcHoleFiller(!settings::keep_holes)(
+        EmptyFdeDeleter()(
         ConseqEquivFilter()(
-            parsed_dwarf));
+            parsed_dwarf)));
 
     FactoredSwitchCompiler* sw_compiler = new FactoredSwitchCompiler(1);
     CodeGenerator code_gen(

@@ -9,7 +9,11 @@
 
 class SimpleDwarfFilter {
     public:
-        SimpleDwarfFilter();
+        /** Constructor
+         *
+         * @param apply set to false to disable this filter. This setting is
+         * convenient for compact filter-chaining code. */
+        SimpleDwarfFilter(bool enable=true);
 
         /// Applies the filter
         SimpleDwarf apply(const SimpleDwarf& dw) const;
@@ -19,4 +23,6 @@ class SimpleDwarfFilter {
 
     private:
         virtual SimpleDwarf do_apply(const SimpleDwarf& dw) const = 0;
+
+        bool enable;
 };

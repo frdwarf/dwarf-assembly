@@ -5,7 +5,7 @@
 
 using namespace std;
 
-PcHoleFiller::PcHoleFiller() {}
+PcHoleFiller::PcHoleFiller(bool enable): SimpleDwarfFilter(enable) {}
 
 SimpleDwarf PcHoleFiller::do_apply(const SimpleDwarf& dw) const {
     SimpleDwarf out(dw);

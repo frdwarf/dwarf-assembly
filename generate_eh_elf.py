@@ -52,6 +52,7 @@ class Config:
                  use_pc_list=False,
                  c_opt_level='3',
                  enable_deref_arg=False,
+                 keep_holes=False,
                  cc_debug=False,
                  remote=None):
         self.output = '.' if output is None else output
@@ -65,6 +66,7 @@ class Config:
         self.use_pc_list = use_pc_list
         self.c_opt_level = c_opt_level
         self.enable_deref_arg = enable_deref_arg
+        self.keep_holes = keep_holes
         self.cc_debug = cc_debug
         self.remote = remote
 
@@ -78,6 +80,8 @@ class Config:
         out.append(self.sw_gen_policy.value)
         if self.enable_deref_arg:
             out.append('--enable-deref-arg')
+        if self.keep_holes:
+            out.append('--keep-holes')
         return out
 
     def cc_opts(self):
@@ -309,6 +313,9 @@ def process_args():
                               "dwarf-assembly, enabling an extra `deref` "
                               "argument for each lookup function, allowing "
                               "to work on remote address spaces."))
+    parser.add_argument('--keep-holes', action='store_true',
+                        help=("Keep holes between FDEs instead of filling "
+                              "them with junk. More accurate, less compact."))
     parser.add_argument("-g", "--cc-debug", action='store_true',
                         help=("Compile the source file with -g for easy "
                               "debugging"))
@@ -356,17 +363,18 @@ def process_args():
 def main():
     args = process_args()
     config = Config(
-        args.output,
-        args.aux,
-        args.no_dft_aux,
-        args.object,
-        args.sw_gen_policy,
-        args.force,
-        args.use_pc_list,
-        args.c_opt_level,
-        args.enable_deref_arg,
-        args.cc_debug,
-        args.remote,
+        output=args.output,
+        aux=args.aux,
+        no_dft_aux=args.no_dft_aux,
+        objects=args.object,
+        sw_gen_policy=args.sw_gen_policy,
+        force=args.force,
+        use_pc_list=args.use_pc_list,
+        c_opt_level=args.c_opt_level,
+        enable_deref_arg=args.enable_deref_arg,
+        keep_holes=args.keep_holes,
+        cc_debug=args.cc_debug,
+        remote=args.remote,
     )
 
     for obj in args.object:

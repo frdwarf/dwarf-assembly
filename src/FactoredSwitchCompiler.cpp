@@ -15,9 +15,11 @@ void FactoredSwitchCompiler::to_stream(
     JumpPointMap jump_points;
 
     gen_binsearch_tree(os, jump_points, sw.switch_var,
-            sw.cases.begin(), sw.cases.end());
+            sw.cases.begin(), sw.cases.end(),
+            make_pair(sw.cases.front().low_bound, sw.cases.back().high_bound));
 
-    os << indent_str(sw.default_case) << "\n"
+    os << indent() << "_factor_default:\n"
+       << indent_str(sw.default_case) << "\n"
        << indent() << "/* ===== LABELS  ============================== */\n\n";
 
     gen_jump_points_code(os, jump_points);
@@ -65,7 +67,8 @@ void FactoredSwitchCompiler::gen_binsearch_tree(
         FactoredSwitchCompiler::JumpPointMap& jump_map,
         const std::string& sw_var,
         const FactoredSwitchCompiler::case_iterator_t& begin,
-        const FactoredSwitchCompiler::case_iterator_t& end)
+        const FactoredSwitchCompiler::case_iterator_t& end,
+        const loc_range_t& loc_range)
 {
     size_t iter_delta = end - begin;
     if(iter_delta == 0)
@@ -73,6 +76,19 @@ void FactoredSwitchCompiler::gen_binsearch_tree(
     else if(iter_delta == 1) {
         FactorJumpPoint jump_point = get_jump_point(
                 jump_map, begin->content);
+        if(loc_range.first < begin->low_bound) {
+            os << indent() << "if(" << sw_var << " < 0x"
+               << hex << begin->low_bound << dec
+               << ") goto _factor_default; "
+               << "// IP=0x" << hex << loc_range.first << " ... 0x"
+               << begin->low_bound - 1 << "\n";
+        }
+        if(begin->high_bound + 1 < loc_range.second) {
+            os << indent() << "if(0x" << hex << begin->high_bound << dec
+               << " < " << sw_var << ") goto _factor_default; "
+               << "// IP=0x" << hex << begin->high_bound + 1 << " ... 0x"
+               << loc_range.second - 1 << "\n";
+        }
         os << indent() << "// IP=0x" << hex << begin->low_bound
                        << " ... 0x" << begin->high_bound << dec << "\n"
            << indent() << "goto " << jump_point << ";\n";
@@ -83,11 +99,15 @@ void FactoredSwitchCompiler::gen_binsearch_tree(
         os << indent() << "if(" << sw_var << " < 0x"
            << hex << mid->low_bound << dec << ") {\n";
         indent_count++;
-        gen_binsearch_tree(os, jump_map, sw_var, begin, mid);
+        gen_binsearch_tree(
+                os, jump_map, sw_var, begin, mid,
+                make_pair(loc_range.first, mid->low_bound));
         indent_count--;
         os << indent() << "} else {\n";
         indent_count++;
-        gen_binsearch_tree(os, jump_map, sw_var, mid, end);
+        gen_binsearch_tree(
+                os, jump_map, sw_var, mid, end,
+                make_pair(mid->low_bound, loc_range.second));
         indent_count--;
         os << indent() << "}\n";
     }

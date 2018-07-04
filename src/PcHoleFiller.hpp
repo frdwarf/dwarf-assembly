@@ -8,7 +8,7 @@
 
 class PcHoleFiller: public SimpleDwarfFilter {
     public:
-        PcHoleFiller();
+        PcHoleFiller(bool enable=true);
 
     private:
         SimpleDwarf do_apply(const SimpleDwarf& dw) const;

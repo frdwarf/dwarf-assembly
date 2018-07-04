@@ -24,6 +24,7 @@ class FactoredSwitchCompiler: public AbstractSwitchCompiler {
             JumpPointMap;
         typedef std::vector<SwitchStatement::SwitchCase>::const_iterator
             case_iterator_t;
+        typedef std::pair<uintptr_t, uintptr_t> loc_range_t;
 
     private:
         virtual void to_stream(std::ostream& os, const SwitchStatement& sw);
@@ -39,7 +40,9 @@ class FactoredSwitchCompiler: public AbstractSwitchCompiler {
                 JumpPointMap& jump_map,
                 const std::string& sw_var,
                 const case_iterator_t& begin,
-                const case_iterator_t& end);
+                const case_iterator_t& end,
+                const loc_range_t& loc_range // [beg, end[
+                );
 
         size_t cur_label_id;
 

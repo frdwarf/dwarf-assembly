@@ -1,10 +1,11 @@
 #include "SimpleDwarfFilter.hpp"
 
-SimpleDwarfFilter::SimpleDwarfFilter()
+SimpleDwarfFilter::SimpleDwarfFilter(bool enable): enable(enable)
 {}
 
 SimpleDwarf SimpleDwarfFilter::apply(const SimpleDwarf& dw) const {
-    // For convenience of future enhancements
+    if(!enable)
+        return dw;
     return do_apply(dw);
 }
 

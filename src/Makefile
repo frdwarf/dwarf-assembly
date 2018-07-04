@@ -12,6 +12,7 @@ OBJS=\
 	PcListReader.o \
 	SimpleDwarfFilter.o \
 	PcHoleFiller.o \
+	EmptyFdeDeleter.o \
 	ConseqEquivFilter.o \
 	SwitchStatement.o \
 	NativeSwitchCompiler.o \

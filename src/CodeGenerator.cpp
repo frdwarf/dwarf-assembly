@@ -271,6 +271,16 @@ void CodeGenerator::gen_of_reg(const SimpleDwarf::DwRegister& reg,
             }
             break;
         }
+        case SimpleDwarf::DwRegister::REG_PLT_EXPR: {
+            /*
+            if(settings::enable_deref_arg)
+                stream << "(deref(";
+            else
+                stream << "*((uintptr_t*)(";
+            */
+            stream << "(((ctx.rip & 15) >= 11) ? 8 : 0) + ctx.rsp";
+            break;
+        }
         case SimpleDwarf::DwRegister::REG_NOT_IMPLEMENTED:
             stream << "0";
             throw UnhandledRegister();
