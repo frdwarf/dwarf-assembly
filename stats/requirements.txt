@@ -1,0 +1,2 @@
+git+https://github.com/eliben/pyelftools
+git+https://github.com/uqfoundation/pathos
