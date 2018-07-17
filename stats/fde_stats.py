@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from stats_accu import StatsAccumulator
 import gather_stats
 
 import argparse
@@ -14,6 +15,9 @@ class Config:
 
         if args.feature == 'gather':
             self.output = args.output
+
+        elif args.feature == 'sample':
+            self.size = int(args.size)
 
         elif args.feature == 'analyze':
             self.data_file = args.data_file
@@ -33,6 +37,19 @@ class Config:
                                   "1. 0 to use up all cores."))
 
         subparsers = parser.add_subparsers(help='Subcommands')
+
+        # Sample stats
+        parser_sample = subparsers.add_parser(
+            'sample',
+            help='Same as gather, but for a random subset of files')
+        parser_sample.set_defaults(feature='sample')
+        parser_sample.add_argument('--size', '-n',
+                                   default=1000,
+                                   help=('Pick this number of files'))
+        parser_sample.add_argument('--output', '-o',
+                                   default='elf_data',
+                                   help=('Output data to this file. Defaults '
+                                         'to "elf_data"'))
 
         # Gather stats
         parser_gather = subparsers.add_parser(
@@ -70,11 +87,17 @@ def main():
 
     if config.feature == 'gather':
         stats_accu = gather_stats.gather_system_files(config)
-        stats_accu.serialize(config.output)
+        stats_accu.dump(config.output)
+
+    elif config.feature == 'sample':
+        stats_accu = gather_stats.gather_system_files(
+            config,
+            sample_size=config.size)
 
     elif config.feature == 'analyze':
         # TODO
         print("Not implemented", file=sys.stderr)
+        stats_accu = StatsAccumulator.load(config.data_file)
         sys.exit(1)
 
 

@@ -2,6 +2,7 @@
 
 from elftools.elf.elffile import ELFFile
 from elftools.common.exceptions import ELFError, DWARFError
+from stats_accu import ElfType
 import os
 
 
@@ -44,20 +45,20 @@ def system_elfs():
                          os.readlink(path)))
 
     sysbin_dirs = [
-        '/lib',
-        '/usr/lib',
-        '/usr/local/lib',
-        '/bin',
-        '/usr/bin',
-        '/usr/local/bin',
-        '/sbin',
+        ('/lib', ElfType.ELF_LIB),
+        ('/usr/lib', ElfType.ELF_LIB),
+        ('/usr/local/lib', ElfType.ELF_LIB),
+        ('/bin', ElfType.ELF_BINARY),
+        ('/usr/bin', ElfType.ELF_BINARY),
+        ('/usr/local/bin', ElfType.ELF_BINARY),
+        ('/sbin', ElfType.ELF_BINARY),
     ]
     to_explore = sysbin_dirs
 
     seen_elfs = set()
 
     while to_explore:
-        bindir = to_explore.pop()
+        bindir, elftype = to_explore.pop()
 
         if not os.path.isdir(bindir):
             continue
@@ -65,12 +66,23 @@ def system_elfs():
         for direntry in os.scandir(bindir):
             if not direntry.is_file():
                 if direntry.is_dir():
-                    to_explore.append(direntry.path)
+                    to_explore.append((direntry.path, elftype))
                 continue
 
             canonical_name = readlink_rec(direntry.path)
             if canonical_name in seen_elfs:
                 continue
 
+            valid_elf = True
+            try:
+                with open(canonical_name, 'rb') as handle:
+                    magic_bytes = handle.read(4)
+                    if magic_bytes != b'\x7fELF':
+                        valid_elf = False
+            except Exception:
+                continue
+            if not valid_elf:
+                continue
+
             seen_elfs.add(canonical_name)
-            yield canonical_name
+            yield (canonical_name, elftype)

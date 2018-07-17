@@ -1,9 +1,9 @@
 from elftools.dwarf import callframe
-from pyelftools_overlay import get_cfi
-from enum import Enum
-import json
+import enum
 import subprocess
 import re
+import json
+import collections
 
 from math import ceil
 
@@ -69,109 +69,195 @@ def elf_so_deps(path):
              "{}.").format(path, exn.returncode))
 
 
-class ElfType(Enum):
-    ELF_LIB = auto()
-    ELF_BINARY = auto()
+class ElfType(enum.Enum):
+    ELF_LIB = enum.auto()
+    ELF_BINARY = enum.auto()
+
+
+class DwarfInstr(enum.Enum):
+    @staticmethod
+    def of_pyelf(val):
+        _table = {
+            callframe.RegisterRule.UNDEFINED: DwarfInstr.INSTR_UNDEF,
+            callframe.RegisterRule.SAME_VALUE: DwarfInstr.INSTR_SAME_VALUE,
+            callframe.RegisterRule.OFFSET: DwarfInstr.INSTR_OFFSET,
+            callframe.RegisterRule.VAL_OFFSET: DwarfInstr.INSTR_VAL_OFFSET,
+            callframe.RegisterRule.REGISTER: DwarfInstr.INSTR_REGISTER,
+            callframe.RegisterRule.EXPRESSION: DwarfInstr.INSTR_EXPRESSION,
+            callframe.RegisterRule.VAL_EXPRESSION:
+                DwarfInstr.INSTR_VAL_EXPRESSION,
+            callframe.RegisterRule.ARCHITECTURAL:
+                DwarfInstr.INSTR_ARCHITECTURAL,
+        }
+        return _table[val]
+
+    INSTR_UNDEF = enum.auto()
+    INSTR_SAME_VALUE = enum.auto()
+    INSTR_OFFSET = enum.auto()
+    INSTR_VAL_OFFSET = enum.auto()
+    INSTR_REGISTER = enum.auto()
+    INSTR_EXPRESSION = enum.auto()
+    INSTR_VAL_EXPRESSION = enum.auto()
+    INSTR_ARCHITECTURAL = enum.auto()
+
+
+def intify_dict(d):
+    out = {}
+    for key in d:
+        try:
+            nKey = int(key)
+        except Exception:
+            nKey = key
+
+        try:
+            out[nKey] = int(d[key])
+        except ValueError:
+            out[nKey] = d[key]
+    return out
+
+
+class RegData:
+    def __init__(self, instrs=None, regs=None, exprs=None):
+        if instrs is None:
+            instrs = {}
+        if regs is None:
+            regs = [0]*17
+        if exprs is None:
+            exprs = {}
+        self.instrs = intify_dict(instrs)
+        self.regs = regs
+        self.exprs = intify_dict(exprs)
+
+    @staticmethod
+    def map_dict_keys(fnc, dic):
+        out = {}
+        for key in dic:
+            out[fnc(key)] = dic[key]
+        return out
+
+    def dump(self):
+        return {
+            'instrs': RegData.map_dict_keys(lambda x: x.value, self.instrs),
+            'regs': self.regs,
+            'exprs': self.exprs,
+        }
+
+    @staticmethod
+    def load(data):
+        return RegData(
+            instrs=RegData.map_dict_keys(
+                lambda x: DwarfInstr(int(x)),
+                data['instrs']),
+            regs=data['regs'],
+            exprs=data['exprs'],
+        )
+
+
+class RegsList:
+    def __init__(self, cfa=None, regs=None):
+        if cfa is None:
+            cfa = RegsList.fresh_reg()
+        if regs is None:
+            regs = [RegsList.fresh_reg() for _ in range(17)]
+        self.cfa = cfa
+        self.regs = regs
+
+    @staticmethod
+    def fresh_reg():
+        return RegData()
+
+    def dump(self):
+        return {
+            'cfa': RegData.dump(self.cfa),
+            'regs': [RegData.dump(r) for r in self.regs],
+        }
+
+    @staticmethod
+    def load(data):
+        return RegsList(
+            cfa=RegData.load(data['cfa']),
+            regs=[RegData.load(r) for r in data['regs']],
+        )
+
+
+class FdeData:
+    def __init__(self, fde_count=0, fde_with_lines=None, regs=None):
+        if fde_with_lines is None:
+            fde_with_lines = {}
+        if regs is None:
+            regs = RegsList()
+
+        self.fde_count = fde_count
+        self.fde_with_lines = intify_dict(fde_with_lines)
+        self.regs = regs
+
+    def dump(self):
+        return {
+            'fde_count': self.fde_count,
+            'fde_with_lines': self.fde_with_lines,
+            'regs': self.regs.dump(),
+        }
+
+    @staticmethod
+    def load(data):
+        return FdeData(
+            fde_count=int(data['fde_count']),
+            fde_with_lines=data['fde_with_lines'],
+            regs=RegsList.load(data['regs']))
 
 
 class SingleFdeData:
     def __init__(self, path, elf_type, data):
         self.path = path
         self.elf_type = elf_type
-        self.data = data
+        self.data = data  # < of type FdeData
 
         self.gather_deps()
 
     def gather_deps(self):
         """ Collect ldd data on the binary """
-        self.deps = elf_so_deps(self.path)
+        # self.deps = elf_so_deps(self.path)
+        self.deps = []
+
+    def dump(self):
+        return {
+            'path': self.path,
+            'elf_type': self.elf_type.value,
+            'data': self.data.dump()
+        }
+
+    @staticmethod
+    def load(data):
+        return SingleFdeData(
+            data['path'],
+            ElfType(int(data['elf_type'])),
+            FdeData.load(data['data']))
 
 
 class StatsAccumulator:
     def __init__(self):
-        self.elf_count = 0
-        self.fde_count = 0
-        self.fde_row_count = 0
-        self.fde_with_n_rows = {}
+        self.fdes = []
 
-    def serialize(self, path):
-        ''' Save the gathered data to `stream` '''
+    def add_fde(self, fde_data):
+        self.fdes.append(fde_data)
 
-        notable_fields = [
-            'elf_count',
-            'fde_count',
-            'fde_row_count',
-            'fde_with_n_rows',
-        ]
-        out = {}
-        for field in notable_fields:
-            out[field] = self.__dict__[field]
+    def get_fdes(self):
+        return self.fdes
 
-        with open(path, 'wb') as stream:
-            json.dump(out, stream)
+    def add_stats_accu(self, stats_accu):
+        for fde in stats_accu.get_fdes():
+            self.add_fde(fde)
+
+    def dump(self, path):
+        dict_form = [fde.dump() for fde in self.fdes]
+        print(dict_form)
+        with open(path, 'w') as handle:
+            handle.write(json.dumps(dict_form))
 
     @staticmethod
-    def unserialize(path):
+    def load(path):
+        with open(path, 'r') as handle:
+            text = handle.read()
         out = StatsAccumulator()
-        with open(path, 'wb') as stream:
-            data = json.load(stream)
-        for field in data:
-            out.field = data[field]
+        out.fdes = [SingleFdeData.load(data) for data in json.loads(text)]
         return out
-
-    def report(self):
-        ''' Report on the statistics gathered '''
-
-        self.fde_rows_proportion = ProportionFinder(
-            self.fde_with_n_rows)
-
-        rows = [
-            ("ELFs analyzed", self.elf_count),
-            ("FDEs analyzed", self.fde_count),
-            ("FDE rows analyzed", self.fde_row_count),
-            ("Avg. rows per FDE", self.fde_row_count / self.fde_count),
-            ("Median rows per FDE",
-             self.fde_rows_proportion.find_at_proportion(0.5)),
-            ("Max rows per FDE", max(self.fde_with_n_rows.keys())),
-        ]
-
-        title_size = max(map(lambda x: len(x[0]), rows))
-        line_format = "{:<" + str(title_size + 1) + "} {}"
-
-        for row in rows:
-            print(line_format.format(row[0], row[1]))
-
-    def process_file(self, path):
-        ''' Process a single file '''
-
-        cfi = get_cfi(path)
-        if not cfi:
-            return
-
-        self.elf_count += 1
-
-        for entry in cfi:
-            if isinstance(entry, callframe.CIE):  # Is a CIE
-                self.process_cie(entry)
-            elif isinstance(entry, callframe.FDE):  # Is a FDE
-                self.process_fde(entry)
-
-    def incr_cell(self, table, key):
-        ''' Increments table[key], or sets it to 1 if unset '''
-        if key in table:
-            table[key] += 1
-        else:
-            table[key] = 1
-
-    def process_cie(self, cie):
-        ''' Process a CIE '''
-        pass  # Nothing needed from a CIE
-
-    def process_fde(self, fde):
-        ''' Process a FDE '''
-        self.fde_count += 1
-
-        decoded = fde.get_decoded()
-        row_count = len(decoded.table)
-        self.fde_row_count += row_count
-        self.incr_cell(self.fde_with_n_rows, row_count)
