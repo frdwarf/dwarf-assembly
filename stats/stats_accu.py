@@ -239,7 +239,8 @@ class StatsAccumulator:
         self.fdes = []
 
     def add_fde(self, fde_data):
-        self.fdes.append(fde_data)
+        if fde_data:
+            self.fdes.append(fde_data)
 
     def get_fdes(self):
         return self.fdes
@@ -250,7 +251,6 @@ class StatsAccumulator:
 
     def dump(self, path):
         dict_form = [fde.dump() for fde in self.fdes]
-        print(dict_form)
         with open(path, 'w') as handle:
             handle.write(json.dumps(dict_form))
 

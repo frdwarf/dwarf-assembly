@@ -6,6 +6,11 @@ from stats_accu import ElfType
 import os
 
 
+ELF_BLACKLIST = [
+    '/usr/lib/libavcodec.so',
+]
+
+
 def get_cfi(path):
     ''' Get the CFI entries from the ELF at the provided path '''
 
@@ -14,6 +19,7 @@ def get_cfi(path):
             elf_file = ELFFile(file_handle)
 
             if not elf_file.has_dwarf_info():
+                print("No DWARF")
                 return None
 
             dw_info = elf_file.get_dwarf_info()
@@ -22,12 +28,19 @@ def get_cfi(path):
             elif dw_info.has_EH_CFI():
                 cfis = dw_info.EH_CFI_entries()
             else:
+                print("No CFI")
                 return None
     except ELFError:
+        print("ELF Error")
         return None
     except DWARFError:
+        print("DWARF Error")
         return None
     except PermissionError:
+        print("Permission Error")
+        return None
+    except KeyError:
+        print("Key Error")
         return None
 
     return cfis
@@ -70,6 +83,9 @@ def system_elfs():
                 continue
 
             canonical_name = readlink_rec(direntry.path)
+            for blacked in ELF_BLACKLIST:
+                if canonical_name.startswith(blacked):
+                    continue
             if canonical_name in seen_elfs:
                 continue
 
@@ -79,9 +95,15 @@ def system_elfs():
                     magic_bytes = handle.read(4)
                     if magic_bytes != b'\x7fELF':
                         valid_elf = False
+                    elf_class = handle.read(1)
+                    if elf_class != b'\x02':  # ELF64
+                        valid_elf = False
             except Exception:
                 continue
             if not valid_elf:
+                continue
+
+            if not os.path.isfile(canonical_name):
                 continue
 
             seen_elfs.add(canonical_name)

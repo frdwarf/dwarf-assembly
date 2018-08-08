@@ -18,6 +18,7 @@ class Config:
 
         elif args.feature == 'sample':
             self.size = int(args.size)
+            self.output = args.output
 
         elif args.feature == 'analyze':
             self.data_file = args.data_file
@@ -93,9 +94,9 @@ def main():
         stats_accu = gather_stats.gather_system_files(
             config,
             sample_size=config.size)
+        stats_accu.dump(config.output)
 
     elif config.feature == 'analyze':
-        # TODO
         print("Not implemented", file=sys.stderr)
         stats_accu = StatsAccumulator.load(config.data_file)
         sys.exit(1)
