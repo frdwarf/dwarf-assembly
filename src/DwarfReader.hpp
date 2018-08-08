@@ -37,6 +37,11 @@ class DwarfReader {
         bool is_plt_expr(
                 const dwarf::core::FrameSection::register_def& reg) const;
 
+        bool interpret_simple_expr(
+                const dwarf::core::FrameSection::register_def& reg,
+                SimpleDwarf::DwRegister& output
+                ) const;
+
         class UnsupportedRegister: public std::exception {};
 
     private:

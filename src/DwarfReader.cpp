@@ -16,6 +16,20 @@ DwarfReader::DwarfReader(const string& path):
     root(fileno(ifstream(path)))
 {}
 
+// Debug function -- dumps an expression
+static void dump_expr(const core::FrameSection::register_def& reg) {
+    assert(reg.k == core::FrameSection::register_def::SAVED_AT_EXPR
+           || reg.k == core::FrameSection::register_def::VAL_OF_EXPR);
+
+    const encap::loc_expr& expr = reg.saved_at_expr_r();
+
+    for(const auto& elt: expr) {
+        fprintf(stderr, "(%02x, %02llx, %02llx, %02llx) :: ",
+                elt.lr_atom, elt.lr_number, elt.lr_number2, elt.lr_offset);
+    }
+    fprintf(stderr, "\n");
+}
+
 SimpleDwarf DwarfReader::read() const {
     const core::FrameSection& fs = root.get_frame_section();
     SimpleDwarf output;
@@ -112,7 +126,7 @@ SimpleDwarf::DwRegister DwarfReader::read_register(
             case core::FrameSection::register_def::SAVED_AT_EXPR:
                 if(is_plt_expr(reg))
                     output.type = SimpleDwarf::DwRegister::REG_PLT_EXPR;
-                else
+                else if(!interpret_simple_expr(reg, output))
                     output.type = SimpleDwarf::DwRegister::REG_NOT_IMPLEMENTED;
                 break;
 
@@ -170,4 +184,48 @@ bool DwarfReader::is_plt_expr(
 
     bool res = compare_dw_expr(expr, REFERENCE_PLT_EXPR);
     return res;
+}
+
+bool DwarfReader::interpret_simple_expr(
+        const dwarf::core::FrameSection::register_def& reg,
+        SimpleDwarf::DwRegister& output
+        ) const
+{
+    bool deref = false;
+    if(reg.k == core::FrameSection::register_def::SAVED_AT_EXPR)
+        deref = true;
+    else if(reg.k == core::FrameSection::register_def::VAL_OF_EXPR)
+        deref = false;
+    else
+        return false;
+
+    const encap::loc_expr& expr = reg.saved_at_expr_r();
+    if(expr.size() > 2 || expr.empty())
+        return false;
+
+    const auto& exp_reg = expr[0];
+    if(0x70 <= exp_reg.lr_atom && exp_reg.lr_atom <= 0x8f) { // DW_OP_breg<n>
+        int reg_id = exp_reg.lr_atom - 0x70;
+        try {
+            output.reg = from_dwarfpp_reg(reg_id, -1); // Cannot be CFA anyway
+            output.offset = exp_reg.lr_number;
+        } catch(const UnsupportedRegister& /* exn */) {
+            return false; // Unsupported register
+        }
+    }
+
+    if(expr.size() == 2) { // OK if deref
+        if(expr[1].lr_atom == 0x06) { // deref
+            if(deref)
+                return false;
+            deref = true;
+        }
+        else
+            return false;
+    }
+
+    if(deref)
+        return false; // TODO try stats? Mabye it's worth implementing
+    output.type = SimpleDwarf::DwRegister::REG_REGISTER;
+    return true;
 }
