@@ -2,7 +2,7 @@ CXX=g++
 CXXLOCS?=-L. -I.
 CXXFL?=
 CXXFLAGS=$(CXXLOCS) -Wall -Wextra -std=c++14 -O2 -g $(CXXFL)
-CXXLIBS=-lelf -ldwarf -ldwarfpp -lsrk31c++ -lc++fileno
+CXXLIBS=-ldwarf -ldwarfpp -lsrk31c++ -lc++fileno -lelf
 
 TARGET=dwarf-assembly
 OBJS=\
