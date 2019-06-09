@@ -9,9 +9,6 @@
 using namespace std;
 using namespace dwarf;
 
-typedef std::set<std::pair<int, core::FrameSection::register_def> >
-    dwarfpp_row_t;
-
 DwarfReader::DwarfReader(const string& path):
     root(fileno(ifstream(path)))
 {}
@@ -30,7 +27,7 @@ static void dump_expr(const core::FrameSection::register_def& reg) {
     fprintf(stderr, "\n");
 }
 
-SimpleDwarf DwarfReader::read() const {
+SimpleDwarf DwarfReader::read() {
     const core::FrameSection& fs = root.get_frame_section();
     SimpleDwarf output;
 
@@ -42,57 +39,119 @@ SimpleDwarf DwarfReader::read() const {
     return output;
 }
 
-SimpleDwarf::Fde DwarfReader::read_fde(const core::Fde& fde) const {
+void DwarfReader::add_cell_to_row(
+        const dwarf::core::FrameSection::register_def& reg,
+        int reg_id,
+        int ra_reg,
+        SimpleDwarf::DwRow& cur_row)
+{
+    if(reg_id == DW_FRAME_CFA_COL3) {
+        cur_row.cfa = read_register(reg);
+    }
+    else {
+        try {
+            SimpleDwarf::MachineRegister reg_type =
+                from_dwarfpp_reg(reg_id, ra_reg);
+            switch(reg_type) {
+                case SimpleDwarf::REG_RBP:
+                    cur_row.rbp = read_register(reg);
+                    break;
+                case SimpleDwarf::REG_RBX:
+                    cur_row.rbx = read_register(reg);
+                    break;
+                case SimpleDwarf::REG_RA:
+                    cur_row.ra = read_register(reg);
+                    break;
+                default:
+                    break;
+            }
+        }
+        catch(const UnsupportedRegister&) {} // Just ignore it.
+    }
+}
+
+void DwarfReader::append_row_to_fde(
+        const dwarfpp_row_t& row,
+        uintptr_t row_addr,
+        int ra_reg,
+        SimpleDwarf::Fde& output)
+{
+    SimpleDwarf::DwRow cur_row;
+
+    cur_row.ip = row_addr;
+
+    for(const auto& cell: row) {
+        add_cell_to_row(cell.second, cell.first, ra_reg, cur_row);
+    }
+
+    if(cur_row.cfa.type == SimpleDwarf::DwRegister::REG_UNDEFINED)
+    {
+        // Not set
+        throw InvalidDwarf();
+    }
+
+    output.rows.push_back(cur_row);
+}
+
+template<typename Key, typename Value>
+static std::set<std::pair<Key, Value> > map_to_setpair(
+        const std::map<Key, Value>& src_map)
+{
+    std::set<std::pair<Key, Value> > out;
+    for(const auto map_it: src_map) {
+        out.insert(map_it);
+    }
+    return out;
+}
+
+void DwarfReader::append_results_to_fde(
+        const dwarf::core::FrameSection::instrs_results& results,
+        int ra_reg,
+        SimpleDwarf::Fde& output)
+{
+    for(const auto row_pair: results.rows) {
+        append_row_to_fde(
+                row_pair.second,
+                row_pair.first.lower(),
+                ra_reg,
+                output);
+    }
+    if(results.unfinished_row.size() > 0) {
+        try {
+            append_row_to_fde(
+                    map_to_setpair(results.unfinished_row),
+                    results.unfinished_row_addr,
+                    ra_reg,
+                    output);
+        } catch(const InvalidDwarf&) {
+            // Ignore: the unfinished_row can be undefined
+        }
+    }
+}
+
+SimpleDwarf::Fde DwarfReader::read_fde(const core::Fde& fde) {
     SimpleDwarf::Fde output;
     output.fde_offset = fde.get_fde_offset();
     output.beg_ip = fde.get_low_pc();
     output.end_ip = fde.get_low_pc() + fde.get_func_length();
 
-    auto rows = fde.decode().rows;
     const core::Cie& cie = *fde.find_cie();
     int ra_reg = cie.get_return_address_register_rule();
 
-    for(const auto row_pair: rows) {
-        SimpleDwarf::DwRow cur_row;
+    // CIE rows
+    core::FrameSection cie_fs(root.get_dbg(), true);
+    auto cie_rows = cie_fs.interpret_instructions(
+            cie,
+            fde.get_low_pc(),
+            cie.get_initial_instructions(),
+            cie.get_initial_instructions_length());
 
-        cur_row.ip = row_pair.first.lower();
+    // FDE rows
+    auto fde_rows = fde.decode();
 
-        const dwarfpp_row_t& row = row_pair.second;
-
-        for(const auto& cell: row) {
-            if(cell.first == DW_FRAME_CFA_COL3) {
-                cur_row.cfa = read_register(cell.second);
-            }
-            else {
-                try {
-                    SimpleDwarf::MachineRegister reg_type =
-                        from_dwarfpp_reg(cell.first, ra_reg);
-                    switch(reg_type) {
-                        case SimpleDwarf::REG_RBP:
-                            cur_row.rbp = read_register(cell.second);
-                            break;
-                        case SimpleDwarf::REG_RBX:
-                            cur_row.rbx = read_register(cell.second);
-                            break;
-                        case SimpleDwarf::REG_RA:
-                            cur_row.ra = read_register(cell.second);
-                            break;
-                        default:
-                            break;
-                    }
-                }
-                catch(const UnsupportedRegister&) {} // Just ignore it.
-            }
-        }
-
-        if(cur_row.cfa.type == SimpleDwarf::DwRegister::REG_UNDEFINED)
-        {
-            // Not set
-            throw InvalidDwarf();
-        }
-
-        output.rows.push_back(cur_row);
-    }
+    // instrs
+    append_results_to_fde(cie_rows, ra_reg, output);
+    append_results_to_fde(fde_rows, ra_reg, output);
 
     return output;
 }

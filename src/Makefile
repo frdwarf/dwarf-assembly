@@ -14,6 +14,7 @@ OBJS=\
 	PcHoleFiller.o \
 	EmptyFdeDeleter.o \
 	ConseqEquivFilter.o \
+	OverriddenRowFilter.o \
 	SwitchStatement.o \
 	NativeSwitchCompiler.o \
 	FactoredSwitchCompiler.o \

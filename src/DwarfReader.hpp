@@ -13,6 +13,9 @@
 
 #include "SimpleDwarf.hpp"
 
+typedef std::set<std::pair<int, dwarf::core::FrameSection::register_def> >
+    dwarfpp_row_t;
+
 class DwarfReader {
     public:
         class InvalidDwarf: public std::exception {};
@@ -21,13 +24,30 @@ class DwarfReader {
         DwarfReader(const std::string& path);
 
         /** Actually read the ELF file, generating a `SimpleDwarf` output. */
-        SimpleDwarf read() const;
+        SimpleDwarf read();
 
     private: //meth
-        SimpleDwarf::Fde read_fde(const dwarf::core::Fde& fde) const;
+        SimpleDwarf::Fde read_fde(const dwarf::core::Fde& fde);
+
+        void append_results_to_fde(
+                const dwarf::core::FrameSection::instrs_results& results,
+                int ra_reg,
+                SimpleDwarf::Fde& output);
 
         SimpleDwarf::DwRegister read_register(
                 const dwarf::core::FrameSection::register_def& reg) const;
+
+        void add_cell_to_row(
+                const dwarf::core::FrameSection::register_def& reg,
+                int reg_id,
+                int ra_reg,
+                SimpleDwarf::DwRow& cur_row);
+
+        void append_row_to_fde(
+                const dwarfpp_row_t& row,
+                uintptr_t row_addr,
+                int ra_reg,
+                SimpleDwarf::Fde& output);
 
         SimpleDwarf::MachineRegister from_dwarfpp_reg(
                 int reg_id,

@@ -13,6 +13,7 @@
 #include "PcHoleFiller.hpp"
 #include "EmptyFdeDeleter.hpp"
 #include "ConseqEquivFilter.hpp"
+#include "OverriddenRowFilter.hpp"
 
 #include "settings.hpp"
 
@@ -106,8 +107,9 @@ int main(int argc, char** argv) {
     SimpleDwarf filtered_dwarf =
         PcHoleFiller(!settings::keep_holes)(
         EmptyFdeDeleter()(
+        OverriddenRowFilter()(
         ConseqEquivFilter()(
-            parsed_dwarf)));
+            parsed_dwarf))));
 
     FactoredSwitchCompiler* sw_compiler = new FactoredSwitchCompiler(1);
     CodeGenerator code_gen(
