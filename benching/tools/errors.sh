@@ -41,6 +41,16 @@ function count_fallbacks_failed {
     cat $TMP_FILE | grep -c "step:.* dwarf_step also failed"
 }
 
+function count_fail_after_fallback_to_dwarf {
+    cat $TMP_FILE \
+        | "$(dirname $0)/line_patterns.py" \
+            "fallback with" \
+            "step:.* unw_step called" \
+            ~"step:.* unw_step called" \
+            "step:.* returning -" \
+        | grep Complete -c
+}
+
 function report {
     flavour="$1"
 
@@ -53,12 +63,14 @@ function report {
     if [ "$flavour" = "eh_elf" ]; then
         fallbacks=$(count_eh_fallbacks)
         fallbacks_to_dwarf=$(count_fallbacks_to_dwarf)
+        fallbacks_to_dwarf_failed_after=$(count_fail_after_fallback_to_dwarf)
         fallbacks_failed=$(count_fallbacks_failed)
         fallbacks_to_heuristics="$(( $fallbacks \
             - $fallbacks_to_dwarf \
             - $fallbacks_failed))"
         echo -e "* success:\t\t\t\t$successes"
         echo -e "* fallback to DWARF:\t\t\t$fallbacks_to_dwarf"
+        echo -e "* …of which failed at next step:\t$fallbacks_to_dwarf_failed_after"
         echo -e "* fallback to libunwind heuristics:\t$fallbacks_to_heuristics"
         computed_sum=$(( $successes + $fallbacks - $fallbacks_failed + $failures ))
     else
