@@ -29,6 +29,11 @@ def read_series(path):
 
 
 FLAVOURS = ["eh_elf", "vanilla"]
+WITH_NOCACHE = False
+
+if "WITH_NOCACHE" in os.environ:
+    WITH_NOCACHE = True
+    FLAVOURS.append("vanilla-nocache")
 
 path_format = os.path.join(sys.argv[1], "{}_times")
 times = {}
@@ -59,6 +64,18 @@ def format_flv(flv_dict, formatter):
     return out
 
 
+def get_ratios(avgs):
+    def avg_of(flavour):
+        return avgs[flavour] / avgs["eh_elf"]
+
+    if WITH_NOCACHE:
+        return "\n\tcached: {}\n\tuncached: {}".format(
+            avg_of("vanilla"), avg_of("vanilla-nocache")
+        )
+    else:
+        return avg_of("vanilla-nocache")
+
+
 print(
     "Average time:\n{}\n"
     "Standard deviation:\n{}\n"
@@ -66,7 +83,7 @@ print(
     "Ratio uncertainty: {}".format(
         format_flv(avgs, "{} ns"),
         format_flv(std_deviations, "{}"),
-        avg_ratio,
+        get_ratios(avgs),
         ratio_uncertainty,
     )
 )
