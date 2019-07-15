@@ -3,11 +3,14 @@
 source "$(dirname $0)/common.sh"
 
 TMP_FILE=$(mktemp)
+if [ -z "$EH_ELFS_NAME" ]; then
+    EH_ELFS_NAME="eh_elfs"
+fi
 
 function get_perf_output {
     envtype=$1
     source $ENV_APPLY "$envtype" "dbg"
-    LD_LIBRARY_PATH="$BENCH_DIR/eh_elfs:$LD_LIBRARY_PATH" \
+    LD_LIBRARY_PATH="$BENCH_DIR/$EH_ELFS_NAME:$LD_LIBRARY_PATH" \
         UNW_DEBUG_LEVEL=15 \
         perf report -i "$BENCH_DIR/perf.data" 2>$TMP_FILE >/dev/null
     deactivate

@@ -12,7 +12,7 @@ function collect_perf_time_data {
         perf report -i "$BENCH_DIR/perf.data" 2>&1 >/dev/null \
         | tail -n 1 \
         | python "$(dirname $0)/to_report_fmt.py" \
-        | sed 's/^.* & .* & \([0-9]*\) & .*$/\1/g'
+        | sed 's/^\([0-9]*\) & \([0-9]*\) & \([0-9]*\) & .*$/\1 \2 \3/g'
     deactivate
 }
 
@@ -31,6 +31,11 @@ vanilla_data="$TEMP_DIR/vanilla_times"
 
 collect_perf_time_data_runs "eh_elf" "$eh_elf_data"
 collect_perf_time_data_runs "vanilla" "$vanilla_data"
+
+if [ -n "$WITH_NOCACHE" ]; then
+    vanilla_nocache_data="$TEMP_DIR/vanilla-nocache_times"
+    collect_perf_time_data_runs "vanilla-nocache" "$vanilla_nocache_data"
+fi
 
 status_report "benchmark statistics"
 python "$(dirname "$0")/gen_perf_stats.py" "$TEMP_DIR"
