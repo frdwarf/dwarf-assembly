@@ -73,7 +73,7 @@ def get_ratios(avgs):
             avg_of("vanilla"), avg_of("vanilla-nocache")
         )
     else:
-        return avg_of("vanilla-nocache")
+        return avg_of("vanilla")
 
 
 print(
