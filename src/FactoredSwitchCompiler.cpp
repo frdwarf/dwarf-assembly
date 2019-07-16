@@ -2,6 +2,7 @@
 
 #include <sstream>
 #include <string>
+#include <iostream>
 using namespace std;
 
 FactoredSwitchCompiler::FactoredSwitchCompiler(int indent):
@@ -12,6 +13,13 @@ FactoredSwitchCompiler::FactoredSwitchCompiler(int indent):
 void FactoredSwitchCompiler::to_stream(
         std::ostream& os, const SwitchStatement& sw)
 {
+    if(sw.cases.empty()) {
+        std::cerr << "WARNING: empty unwinding data!\n";
+        os
+            << indent_str("/* WARNING: empty unwinding data! */\n")
+            << indent_str(sw.default_case) << "\n";
+        return;
+    }
     JumpPointMap jump_points;
 
     gen_binsearch_tree(os, jump_points, sw.switch_var,
