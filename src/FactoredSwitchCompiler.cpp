@@ -22,9 +22,20 @@ void FactoredSwitchCompiler::to_stream(
     }
     JumpPointMap jump_points;
 
+    uintptr_t low_bound = sw.cases.front().low_bound,
+              high_bound = sw.cases.back().high_bound;
+
+    os << indent() << "if("
+       << "0x" << hex << low_bound << " <= " << sw.switch_var
+       << " && " << sw.switch_var << " <= 0x" << high_bound << dec << ") {\n";
+    indent_count++;
+
     gen_binsearch_tree(os, jump_points, sw.switch_var,
             sw.cases.begin(), sw.cases.end(),
-            make_pair(sw.cases.front().low_bound, sw.cases.back().high_bound));
+            make_pair(low_bound, high_bound));
+
+    indent_count--;
+    os << indent() << "}\n";
 
     os << indent() << "_factor_default:\n"
        << indent_str(sw.default_case) << "\n"
