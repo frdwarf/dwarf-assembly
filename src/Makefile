@@ -12,6 +12,7 @@ OBJS=\
 	PcListReader.o \
 	SimpleDwarfFilter.o \
 	PcHoleFiller.o \
+	AntiOverlapFilter.o \
 	EmptyFdeDeleter.o \
 	ConseqEquivFilter.o \
 	OverriddenRowFilter.o \

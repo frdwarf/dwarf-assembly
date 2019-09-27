@@ -11,6 +11,7 @@
 #include "NativeSwitchCompiler.hpp"
 #include "FactoredSwitchCompiler.hpp"
 #include "PcHoleFiller.hpp"
+#include "AntiOverlapFilter.hpp"
 #include "EmptyFdeDeleter.hpp"
 #include "ConseqEquivFilter.hpp"
 #include "OverriddenRowFilter.hpp"
@@ -106,10 +107,11 @@ int main(int argc, char** argv) {
 
     SimpleDwarf filtered_dwarf =
         PcHoleFiller(!settings::keep_holes)(
+        AntiOverlapFilter()(
         EmptyFdeDeleter()(
         OverriddenRowFilter()(
         ConseqEquivFilter()(
-            parsed_dwarf))));
+            parsed_dwarf)))));
 
     FactoredSwitchCompiler* sw_compiler = new FactoredSwitchCompiler(1);
     CodeGenerator code_gen(
